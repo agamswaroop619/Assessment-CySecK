@@ -4,6 +4,16 @@ import { useNavigate } from "react-router-dom";
 import { AppShell, Card, PageHeader, PageWrap, SoftButton } from "../components/ui";
 
 const BASE = "http://localhost:7250";
+const SCORE_PARAMS = [
+    { key: "technicalSkills", label: "Technical Skills" },
+    { key: "communication", label: "Communication" },
+    { key: "teamwork", label: "Teamwork" },
+    { key: "leadership", label: "Leadership" },
+    { key: "problemSolving", label: "Problem Solving" },
+    { key: "ownership", label: "Ownership" },
+    { key: "adaptability", label: "Adaptability" },
+    { key: "deliveryQuality", label: "Delivery Quality" }
+];
 
 function Manager({ setUser }) {
     const navigate = useNavigate();
@@ -19,6 +29,14 @@ function Manager({ setUser }) {
     const [emps, setEmps] = useState([]);
     const [scorecards, setScorecards] = useState({});
     const [loading, setLoading] = useState(true);
+    const [expandedRevId, setExpandedRevId] = useState(null);
+    const [formState, setFormState] = useState({});
+    const [isEditing, setIsEditing] = useState({});
+    const [submittingByReview, setSubmittingByReview] = useState({});
+    const [savedByReview, setSavedByReview] = useState({});
+    const [peerFeedbackOpen, setPeerFeedbackOpen] = useState({});
+    const [peerFeedbackByReview, setPeerFeedbackByReview] = useState({});
+    const [peerFeedbackLoading, setPeerFeedbackLoading] = useState({});
 
     const logout = () => {
         localStorage.removeItem("user");
@@ -73,6 +91,165 @@ function Manager({ setUser }) {
         load();
     }, []);
 
+    const hasManagerRating = (employeeId) => {
+        return !!getManagerScorecard(employeeId);
+    };
+
+    const getDefaultForm = () => ({
+        technicalSkills: 3,
+        communication: 3,
+        teamwork: 3,
+        leadership: 3,
+        problemSolving: 3,
+        ownership: 3,
+        adaptability: 3,
+        deliveryQuality: 3,
+        comment: ""
+    });
+
+    const ensureFormState = (reviewId) => {
+        if (formState[reviewId]) return;
+        setFormState((prev) => ({ ...prev, [reviewId]: getDefaultForm() }));
+    };
+
+    const updateFormField = (reviewId, key, value) => {
+        setFormState((prev) => ({
+            ...prev,
+            [reviewId]: {
+                ...(prev[reviewId] ?? getDefaultForm()),
+                [key]: value
+            }
+        }));
+    };
+
+    const mapScorecardToForm = (scorecard) => ({
+        technicalSkills: scorecard.technical_skills ?? scorecard.technicalSkills ?? 3,
+        communication: scorecard.communication ?? 3,
+        teamwork: scorecard.teamwork ?? 3,
+        leadership: scorecard.leadership ?? 3,
+        problemSolving: scorecard.problem_solving ?? scorecard.problemSolving ?? 3,
+        ownership: scorecard.ownership ?? 3,
+        adaptability: scorecard.adaptability ?? 3,
+        deliveryQuality: scorecard.delivery_quality ?? scorecard.deliveryQuality ?? 3,
+        comment: scorecard.comment ?? ""
+    });
+
+    const getManagerScorecard = (employeeId) => {
+        const entry = scorecards[employeeId];
+        if (!entry) return null;
+
+        if (Array.isArray(entry)) {
+            return entry.find((item) => (item.reviewer_id ?? item.reviewerId) === user?.id) ?? null;
+        }
+
+        return (entry.reviewer_id ?? entry.reviewerId) === user?.id ? entry : null;
+    };
+
+    const submitRating = async (rev) => {
+        if (!user?.id) return;
+        const reviewId = rev.id;
+        const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
+        const reviewForm = formState[reviewId] ?? getDefaultForm();
+        const existing = getManagerScorecard(employeeId);
+        const editingMode = !!isEditing[reviewId] && !!existing?.id;
+
+        setSubmittingByReview((prev) => ({ ...prev, [reviewId]: true }));
+        try {
+            const response = await fetch(
+                editingMode ? `${BASE}/scorecard/${existing.id}` : `${BASE}/scorecard`,
+                {
+                    method: editingMode ? "PUT" : "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-user": user.id
+                    },
+                    body: JSON.stringify({
+                        review_id: reviewId,
+                        employee_id: employeeId,
+                        reviewer_id: user.id,
+                        technical_skills: reviewForm.technicalSkills,
+                        communication: reviewForm.communication,
+                        teamwork: reviewForm.teamwork,
+                        leadership: reviewForm.leadership,
+                        problem_solving: reviewForm.problemSolving,
+                        ownership: reviewForm.ownership,
+                        adaptability: reviewForm.adaptability,
+                        delivery_quality: reviewForm.deliveryQuality,
+                        comment: reviewForm.comment
+                    })
+                }
+            );
+            const created = await response.json();
+
+            setScorecards((prev) => {
+                const existingEntries = prev[employeeId];
+                if (Array.isArray(existingEntries)) {
+                    if (editingMode) {
+                        return {
+                            ...prev,
+                            [employeeId]: existingEntries.map((entry) =>
+                                entry.id === created.id ? created : entry
+                            )
+                        };
+                    }
+                    const filtered = existingEntries.filter(
+                        (entry) => (entry.reviewer_id ?? entry.reviewerId) !== user.id
+                    );
+                    return { ...prev, [employeeId]: [...filtered, created] };
+                }
+
+                return { ...prev, [employeeId]: created };
+            });
+
+            setIsEditing((prev) => ({ ...prev, [reviewId]: false }));
+            setSavedByReview((prev) => ({ ...prev, [reviewId]: true }));
+            setTimeout(() => {
+                setSavedByReview((prev) => ({ ...prev, [reviewId]: false }));
+            }, 2000);
+        } finally {
+            setSubmittingByReview((prev) => ({ ...prev, [reviewId]: false }));
+        }
+    };
+
+    const openReviewForm = (rev, isExpanded) => {
+        const nextId = isExpanded ? null : rev.id;
+        if (!nextId) {
+            setExpandedRevId(null);
+            return;
+        }
+
+        const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
+        const existing = getManagerScorecard(employeeId);
+        if (existing) {
+            setFormState((prev) => ({
+                ...prev,
+                [rev.id]: mapScorecardToForm(existing)
+            }));
+            setIsEditing((prev) => ({ ...prev, [rev.id]: false }));
+        } else {
+            ensureFormState(rev.id);
+            setIsEditing((prev) => ({ ...prev, [rev.id]: true }));
+        }
+        setExpandedRevId(nextId);
+    };
+
+    const togglePeerFeedback = async (reviewId) => {
+        const shouldOpen = !peerFeedbackOpen[reviewId];
+        setPeerFeedbackOpen((prev) => ({ ...prev, [reviewId]: shouldOpen }));
+        if (!shouldOpen || peerFeedbackByReview[reviewId] || peerFeedbackLoading[reviewId]) return;
+
+        setPeerFeedbackLoading((prev) => ({ ...prev, [reviewId]: true }));
+        try {
+            const response = await fetch(`${BASE}/fb/${reviewId}`, {
+                headers: { "x-user": user.id }
+            });
+            const data = await response.json();
+            setPeerFeedbackByReview((prev) => ({ ...prev, [reviewId]: data }));
+        } finally {
+            setPeerFeedbackLoading((prev) => ({ ...prev, [reviewId]: false }));
+        }
+    };
+
     return (
         <AppShell>
             <PageWrap max="max-w-3xl">
@@ -85,17 +262,153 @@ function Manager({ setUser }) {
                         </SoftButton>
                     )}
                 />
-                <Card>
-                    {loading ? (
+                {loading ? (
+                    <Card>
                         <p className="text-sm text-slate-500">Loading manager data...</p>
-                    ) : (
-                        <div className="space-y-1 text-sm text-slate-600">
-                            <p>Reviews loaded: {reviews.length}</p>
-                            <p>Employees loaded: {emps.length}</p>
-                            <p>Scorecards loaded: {Object.keys(scorecards).length}</p>
-                        </div>
-                    )}
-                </Card>
+                    </Card>
+                ) : (
+                    <div className="space-y-5">
+                        {reviews.length === 0 && (
+                            <Card>
+                                <p className="text-center text-sm text-slate-500">No reviews assigned</p>
+                            </Card>
+                        )}
+
+                        {reviews.map((rev) => {
+                            const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
+                            const empName = emps.find((emp) => emp.id === employeeId)?.name ?? `Employee #${employeeId}`;
+                            const isRated = hasManagerRating(employeeId);
+                            const isExpanded = expandedRevId === rev.id;
+                            const reviewForm = formState[rev.id] ?? getDefaultForm();
+                            const isSubmitting = !!submittingByReview[rev.id];
+                            const isSaved = !!savedByReview[rev.id];
+                            const existingScorecard = getManagerScorecard(employeeId);
+                            const canEditFields = !existingScorecard || !!isEditing[rev.id];
+                            const feedbackOpen = !!peerFeedbackOpen[rev.id];
+                            const feedbackLoading = !!peerFeedbackLoading[rev.id];
+                            const feedbackItems = peerFeedbackByReview[rev.id] ?? [];
+
+                            return (
+                                <Card
+                                    key={rev.id}
+                                    className="transition hover:border-violet-200"
+                                >
+                                    <div
+                                        onClick={() => openReviewForm(rev, isExpanded)}
+                                        className="mb-3 cursor-pointer"
+                                    >
+                                        <div className="mb-3 flex items-center justify-between gap-2">
+                                            <h2 className="text-lg font-medium text-slate-800">{rev.title}</h2>
+                                            <span
+                                                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                                    isRated
+                                                        ? "bg-emerald-100 text-emerald-700"
+                                                        : "bg-amber-100 text-amber-700"
+                                                }`}
+                                            >
+                                                {isRated ? "Rated" : "Pending"}
+                                            </span>
+                                        </div>
+
+                                        <p className="text-sm text-slate-500">
+                                            Reviewing: <span className="font-medium text-slate-800">{empName}</span>
+                                        </p>
+                                    </div>
+
+                                    {isExpanded && (
+                                        <div className="mt-4 space-y-4 rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+                                            {SCORE_PARAMS.map((param) => (
+                                                <div key={param.key} className="grid grid-cols-[1fr,2fr,40px] items-center gap-3">
+                                                    <label className="text-sm font-medium text-slate-700">{param.label}</label>
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="5"
+                                                        step="1"
+                                                        value={reviewForm[param.key]}
+                                                        onChange={(e) => updateFormField(rev.id, param.key, Number(e.target.value))}
+                                                        disabled={!canEditFields}
+                                                        className="w-full accent-violet-500"
+                                                    />
+                                                    <span className="text-right text-sm font-semibold text-slate-700">
+                                                        {reviewForm[param.key]}
+                                                    </span>
+                                                </div>
+                                            ))}
+
+                                            <textarea
+                                                rows={3}
+                                                placeholder="Add a comment..."
+                                                className="w-full resize-none rounded-2xl border border-violet-100 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                                                value={reviewForm.comment}
+                                                onChange={(e) => updateFormField(rev.id, "comment", e.target.value)}
+                                                disabled={!canEditFields}
+                                            />
+
+                                            <div className="flex items-center justify-between gap-3">
+                                                {existingScorecard && !canEditFields && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsEditing((prev) => ({ ...prev, [rev.id]: true }))}
+                                                        className="rounded-xl border border-violet-200 bg-white px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => submitRating(rev)}
+                                                    disabled={isSubmitting || !canEditFields}
+                                                    className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    {isSubmitting ? "Submitting..." : existingScorecard ? "Save Changes" : "Submit Rating"}
+                                                </button>
+                                                <span
+                                                    className={`text-sm text-emerald-700 transition-opacity duration-300 ${
+                                                        isSaved ? "opacity-100" : "opacity-0"
+                                                    }`}
+                                                >
+                                                    Saved ✓
+                                                </span>
+                                            </div>
+
+                                            <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => togglePeerFeedback(rev.id)}
+                                                    className="text-sm font-medium text-slate-700 transition hover:text-slate-900"
+                                                >
+                                                    Peer Feedback {feedbackOpen ? "▲" : "▼"}
+                                                </button>
+
+                                                {feedbackOpen && (
+                                                    <div className="mt-3 space-y-2">
+                                                        {feedbackLoading && (
+                                                            <p className="text-sm text-slate-500">Loading feedback…</p>
+                                                        )}
+
+                                                        {!feedbackLoading && feedbackItems.length === 0 && (
+                                                            <p className="text-sm text-slate-500">No peer feedback submitted yet.</p>
+                                                        )}
+
+                                                        {!feedbackLoading && feedbackItems.map((fb) => (
+                                                            <div
+                                                                key={fb.id}
+                                                                className="whitespace-pre-wrap rounded-2xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700"
+                                                            >
+                                                                {fb.text}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </Card>
+                            );
+                        })}
+                    </div>
+                )}
             </PageWrap>
         </AppShell>
     );

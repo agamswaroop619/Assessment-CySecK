@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FiUserPlus, FiTrash2, FiPlusCircle, FiLogOut, FiClipboard, FiList, FiX, FiMessageSquare, FiEdit2 } from "react-icons/fi";
+import { FiUserPlus, FiTrash2, FiPlusCircle, FiLogOut, FiClipboard, FiList, FiX, FiMessageSquare, FiEdit2, FiUpload } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import {
     AppShell,
@@ -19,6 +19,7 @@ const TABS = [
     { key: "employees", label: "Employees", icon: FiUserPlus },
     { key: "create",    label: "Create Review", icon: FiPlusCircle },
     { key: "reviews",   label: "Reviews", icon: FiList },
+    { key: "onboarding", label: "Onboarding", icon: FiUpload },
 ];
 
 function Admin({ setUser }) {
@@ -62,6 +63,9 @@ function Admin({ setUser }) {
     const [title, setTitle] = useState("");
     const [empId, setEmpId] = useState("");
     const [assignIds, setAssignIds] = useState([]);
+    const [rawInput, setRawInput] = useState("");
+    const [parsedRows, setParsedRows] = useState([]);
+    const [onboardResult, setOnboardResult] = useState({});
 
     const load = async () => {
         const e = await fetch(BASE + "/emps", { headers: { "x-user": user.id } });
@@ -153,6 +157,47 @@ function Admin({ setUser }) {
         setAssignIds(prev =>
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
+    };
+    const parseOnboardingInput = () => {
+        const rows = rawInput
+            .split("\n")
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .map((line) => {
+                const [name = "", pin = "", role = "", dept = ""] = line.split(",");
+                return {
+                    name: name.trim(),
+                    pin: pin.trim(),
+                    role: role.trim(),
+                    dept: dept.trim()
+                };
+            });
+
+        setParsedRows(rows);
+        setOnboardResult({});
+    };
+    const submitOnboardingRows = async () => {
+        if (parsedRows.length === 0) return;
+        const res = await fetch(`${BASE}/onboarding`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-user": user.id
+            },
+            body: JSON.stringify({ users: parsedRows })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            setOnboardResult({
+                created: 0,
+                failed: [{ row: "-", reason: data.error || "Onboarding failed" }]
+            });
+            return;
+        }
+
+        setOnboardResult(data);
+        await load();
     };
 
     return (
@@ -315,6 +360,86 @@ function Admin({ setUser }) {
                                 </div>
                             ))}
                         </div>
+                    </Card>
+                )}
+
+                {tab === "onboarding" && (
+                    <Card>
+                        <div className="mb-5 flex items-center gap-2">
+                            <FiUpload />
+                            <h2 className="text-lg font-medium text-slate-800">Onboarding</h2>
+                        </div>
+
+                        <textarea
+                            rows={8}
+                            placeholder="name,pin,role,dept — one per line"
+                            value={rawInput}
+                            onChange={(e) => setRawInput(e.target.value)}
+                            className="mb-4 w-full resize-y rounded-2xl border border-violet-100 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                        />
+
+                        <PrimaryButton onClick={parseOnboardingInput} className="mb-5">
+                            Parse
+                        </PrimaryButton>
+
+                        <div className="overflow-x-auto rounded-2xl border border-violet-100">
+                            <table className="min-w-full divide-y divide-violet-100">
+                                <thead className="bg-violet-50/40">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Name</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">PIN</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Role</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Dept</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-violet-100 bg-white">
+                                    {parsedRows.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-3 py-4 text-center text-sm text-slate-500">
+                                                No parsed rows yet
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {parsedRows.map((row, index) => {
+                                        const isRoleValid = ["admin", "hr", "manager", "employee"].includes(row.role.toLowerCase());
+                                        return (
+                                            <tr key={`${row.name}-${row.pin}-${index}`} className={isRoleValid ? "" : "bg-rose-50"}>
+                                                <td className="px-3 py-2 text-sm text-slate-700">{row.name}</td>
+                                                <td className="px-3 py-2 text-sm text-slate-700">{row.pin}</td>
+                                                <td className={`px-3 py-2 text-sm ${isRoleValid ? "text-slate-700" : "font-medium text-rose-700"}`}>
+                                                    {row.role}
+                                                </td>
+                                                <td className="px-3 py-2 text-sm text-slate-700">{row.dept}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <PrimaryButton
+                            onClick={submitOnboardingRows}
+                            disabled={parsedRows.length === 0}
+                            className="mt-5"
+                        >
+                            Submit
+                        </PrimaryButton>
+
+                        {onboardResult.created !== undefined && (
+                            <p className="mt-3 text-sm font-medium text-emerald-600">
+                                {onboardResult.created} users created
+                            </p>
+                        )}
+
+                        {Array.isArray(onboardResult.failed) && onboardResult.failed.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                                {onboardResult.failed.map((failure, index) => (
+                                    <p key={`${failure.row}-${index}`} className="text-sm text-rose-600">
+                                        Row {failure.row}: {failure.reason}
+                                    </p>
+                                ))}
+                            </div>
+                        )}
                     </Card>
                 )}
             </PageWrap>

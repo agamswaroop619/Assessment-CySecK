@@ -51,6 +51,11 @@ function Login({ setUser }) {
             <div className="flex min-h-screen items-center justify-center">
                 <PageWrap max="max-w-md">
                     <div className="mb-8 text-center">
+                        <img
+                            src="/CySeck.png"
+                            alt="CySecK logo"
+                            className="mx-auto mb-3 h-14 w-14 rounded-xl object-cover"
+                        />
                         <h1 className="text-3xl font-semibold tracking-tight text-slate-800">
                             CySecK Assessment 2
                         </h1>
