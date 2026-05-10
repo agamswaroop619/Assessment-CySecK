@@ -10,7 +10,7 @@ This is the backend server for cyseck assessment.
 
 ### How It Works
 
-because its an in-memory setup, all data (`emps`, `revs`, `fb`, `scorecards`) lives in arrays while the server runs. if you restart it, data resets to seed state from `config.js`.
+It has a local in memory setup, all data (`emps`, `revs`, `fb`, `scorecards`) lives in arrays while the server runs. if you restart it, data resets to seed state from `config.js`.
 
 REST over HTTP:
 

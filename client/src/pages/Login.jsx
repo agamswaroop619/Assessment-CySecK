@@ -66,15 +66,11 @@ function Login({ setUser }) {
             <h1 className="text-3xl font-semibold tracking-tight text-slate-800">
               CySecK assessment
             </h1>
-            <p className="mt-1 text-sm text-slate-500">Structured feedback</p>
           </div>
 
           <Card className="px-6 py-8">
             <div className="mb-6 text-center">
-              <h2 className="text-xl font-medium text-slate-800">
-                Welcome back
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">Login to continue</p>
+              <h2 className="text-xl font-medium text-slate-800">Login</h2>
             </div>
 
             <div className="mb-4">
