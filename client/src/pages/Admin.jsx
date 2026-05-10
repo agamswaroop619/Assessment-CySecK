@@ -262,8 +262,33 @@ function Admin({ setUser }) {
                             items={emps}
                             storageKey="admin-employees-view"
                             defaultView="list"
+                            exportFileName="Employees"
                             empty={<p className="py-4 text-center text-sm text-slate-500">No employees yet</p>}
                             getKey={(e) => e.id}
+                            columns={[
+                                { key: "name", header: "Name", getValue: (e) => e.name },
+                                { key: "pin", header: "PIN", getValue: (e) => e.pin },
+                                {
+                                    key: "actions",
+                                    header: "Actions",
+                                    exportable: false,
+                                    className: "whitespace-nowrap",
+                                    render: (e) => (
+                                        <div className="flex items-center gap-3">
+                                            <FiEdit2
+                                                size={16}
+                                                onClick={() => openEditEmp(e)}
+                                                className="cursor-pointer text-slate-400 transition hover:text-violet-500"
+                                            />
+                                            <FiTrash2
+                                                size={16}
+                                                onClick={() => delEmp(e.id)}
+                                                className="cursor-pointer text-slate-400 transition hover:text-rose-400"
+                                            />
+                                        </div>
+                                    )
+                                }
+                            ]}
                             renderRow={(e) => (
                                 <div className="flex items-center justify-between rounded-2xl border border-violet-100 bg-violet-50/40 px-3 py-2">
                                     <span className="text-sm text-slate-700">
@@ -365,10 +390,40 @@ function Admin({ setUser }) {
                             items={revs}
                             storageKey="admin-reviews-view"
                             defaultView="card"
+                            exportFileName="Reviews"
                             empty={<p className="py-4 text-center text-sm text-slate-500">No reviews created yet</p>}
                             getKey={(r) => r.id}
                             listClassName="space-y-2"
                             cardClassName="grid gap-3 sm:grid-cols-2"
+                            columns={[
+                                { key: "title", header: "Title", getValue: (r) => r.title },
+                                {
+                                    key: "employee",
+                                    header: "Employee",
+                                    getValue: (r) => emps.find(e => e.id === r.empId)?.name ?? r.empId,
+                                },
+                                {
+                                    key: "assigned",
+                                    header: "Assigned",
+                                    getValue: (r) =>
+                                        r.assignedTo.map(id => emps.find(e => e.id === id)?.name ?? id).join(", ") || "none",
+                                },
+                                {
+                                    key: "actions",
+                                    header: "Actions",
+                                    exportable: false,
+                                    className: "whitespace-nowrap",
+                                    render: (r) => (
+                                        <SoftButton
+                                            onClick={(e) => openEditRev(r, e)}
+                                            className="flex items-center gap-1 px-3 py-1.5 text-xs"
+                                        >
+                                            <FiEdit2 size={11} />
+                                            Edit
+                                        </SoftButton>
+                                    )
+                                }
+                            ]}
                             renderRow={(r) => (
                                 <div
                                     onClick={() => openReview(r)}

@@ -269,10 +269,32 @@ function HR({ setUser }) {
                                 items={employeesInDept}
                                 storageKey="hr-employee-gaps-view"
                                 defaultView="list"
+                                exportFileName={`${selectedDept || "Department"} Employees`}
                                 empty={<p className="py-2 text-sm text-slate-500">No employees found in this department.</p>}
                                 getKey={(emp) => emp.id}
                                 listClassName="space-y-2"
                                 cardClassName="grid gap-3 sm:grid-cols-2"
+                                columns={[
+                                    { key: "name", header: "Employee", getValue: (emp) => emp.name },
+                                    {
+                                        key: "improvements",
+                                        header: "Improvements",
+                                        getValue: (emp) => {
+                                            const gaps = employeeGaps[emp.id]?.gaps ?? null;
+                                            const improvementItems = Array.isArray(gaps)
+                                                ? gaps.filter((item) => item.needs_improvement)
+                                                : [];
+                                            if (gaps === null) return "No ratings yet";
+                                            if (improvementItems.length === 0) return "None";
+                                            return improvementItems.map((item) => getGapLabel(item)).join(", ");
+                                        }
+                                    },
+                                    {
+                                        key: "comments",
+                                        header: "Comments",
+                                        getValue: (emp) => (employeeGaps[emp.id]?.comments ?? []).length
+                                    }
+                                ]}
                                 renderRow={(emp) => renderEmployeeGaps(emp, "list")}
                                 renderCard={(emp) => renderEmployeeGaps(emp, "card")}
                             />

@@ -121,6 +121,7 @@ function Emp({ setUser }) {
                     items={reviews}
                     storageKey="emp-reviews-view"
                     defaultView="list"
+                    exportFileName="My Reviews"
                     listClassName="space-y-5"
                     cardClassName="grid gap-5 sm:grid-cols-2"
                     empty={(
@@ -129,6 +130,15 @@ function Emp({ setUser }) {
                         </Card>
                     )}
                     getKey={(r) => r.id}
+                    columns={[
+                        { key: "title", header: "Title", getValue: (r) => r.title },
+                        { key: "employee", header: "Employee", getValue: (r) => r.empName },
+                        {
+                            key: "status",
+                            header: "Status",
+                            getValue: (r) => (alreadyGiven[r.id] !== undefined ? "Submitted" : "Pending")
+                        }
+                    ]}
                     renderCard={(r) => {
                         const isDone = alreadyGiven[r.id] !== undefined;
 

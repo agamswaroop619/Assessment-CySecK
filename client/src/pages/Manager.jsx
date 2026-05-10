@@ -272,6 +272,7 @@ function Manager({ setUser }) {
                         items={reviews}
                         storageKey="manager-reviews-view"
                         defaultView="list"
+                        exportFileName="Manager Reviews"
                         listClassName="space-y-5"
                         cardClassName="grid gap-5 sm:grid-cols-2"
                         empty={(
@@ -280,6 +281,43 @@ function Manager({ setUser }) {
                             </Card>
                         )}
                         getKey={(rev) => rev.id}
+                        columns={[
+                            { key: "title", header: "Title", getValue: (rev) => rev.title },
+                            {
+                                key: "employee",
+                                header: "Employee",
+                                getValue: (rev) => {
+                                    const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
+                                    return emps.find((emp) => emp.id === employeeId)?.name ?? `Employee #${employeeId}`;
+                                }
+                            },
+                            {
+                                key: "status",
+                                header: "Status",
+                                getValue: (rev) => {
+                                    const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
+                                    return hasManagerRating(employeeId) ? "Rated" : "Pending";
+                                }
+                            },
+                            {
+                                key: "open",
+                                header: "Open",
+                                exportable: false,
+                                className: "whitespace-nowrap",
+                                render: (rev) => {
+                                    const isExpanded = expandedRevId === rev.id;
+                                    return (
+                                        <button
+                                            type="button"
+                                            onClick={() => openReviewForm(rev, isExpanded)}
+                                            className="rounded-xl border border-violet-200 bg-violet-100/60 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-200/70"
+                                        >
+                                            {isExpanded ? "Close" : "Open"}
+                                        </button>
+                                    );
+                                }
+                            }
+                        ]}
                         renderCard={(rev) => {
                             const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
                             const empName = emps.find((emp) => emp.id === employeeId)?.name ?? `Employee #${employeeId}`;
