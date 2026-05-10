@@ -248,7 +248,7 @@ function Admin({ setUser }) {
 
     return (
         <AppShell>
-            <PageWrap max="max-w-4xl">
+            <PageWrap max="max-w-7xl">
                 <PageHeader
                     title="Admin Dashboard"
                     right={(
@@ -447,7 +447,6 @@ function Admin({ setUser }) {
                             exportFileName="Reviews"
                             empty={<p className="py-4 text-center text-sm text-slate-500">No reviews created yet</p>}
                             getKey={(r) => r.id}
-                            cardClassName="grid gap-3 sm:grid-cols-2"
                             columns={[
                                 { key: "title", header: "Title", getValue: (r) => r.title },
                                 {

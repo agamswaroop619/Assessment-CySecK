@@ -107,7 +107,7 @@ function Emp({ setUser }) {
 
     return (
         <AppShell>
-            <PageWrap max="max-w-3xl">
+            <PageWrap max="max-w-6xl">
                 <PageHeader
                     title="My Reviews"
                     right={(
@@ -123,8 +123,9 @@ function Emp({ setUser }) {
                     items={reviews}
                     storageKey="emp-reviews-view"
                     defaultView="card"
+                    showTableView={false}
                     exportFileName="My Reviews"
-                    cardClassName="grid gap-5 sm:grid-cols-2"
+                    cardClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
                     empty={(
                         <Card>
                             <p className="text-center text-sm text-slate-500">No reviews assigned yet</p>

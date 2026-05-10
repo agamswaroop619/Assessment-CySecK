@@ -139,8 +139,8 @@ function HR({ setUser }) {
 
     const renderEmployeeGaps = (emp) => {
         const gaps = employeeGaps[emp.id]?.gaps ?? null;
-        const improvementItems = Array.isArray(gaps)
-            ? gaps.filter((item) => item.needs_improvement)
+        const flagItems = Array.isArray(gaps)
+            ? gaps.filter((item) => item.needs_improvement || item.manager_flagged)
             : [];
 
         return (
@@ -163,13 +163,26 @@ function HR({ setUser }) {
                     </span>
                     {gaps === null ? (
                         <p className="text-xs text-slate-500">No ratings yet</p>
-                    ) : improvementItems.length === 0 ? (
+                    ) : flagItems.length === 0 ? (
                         <p className="text-xs text-slate-500">No improvement flags</p>
                     ) : (
-                        improvementItems.map((item, idx) => (
+                        flagItems.map((item, idx) => (
                             <span
                                 key={`${emp.id}-${idx}`}
-                                className="rounded-full bg-rose-100/80 px-2.5 py-1 text-xs font-medium text-rose-500"
+                                title={
+                                    item.needs_improvement && item.manager_flagged
+                                        ? "Below-average score and flagged by manager"
+                                        : item.needs_improvement
+                                          ? "Team average score below threshold"
+                                          : "Flagged by manager"
+                                }
+                                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                                    item.needs_improvement && item.manager_flagged
+                                        ? "bg-rose-100/80 text-rose-600 ring-1 ring-violet-300/90"
+                                        : item.needs_improvement
+                                          ? "bg-rose-100/80 text-rose-500"
+                                          : "bg-violet-100/80 text-violet-700"
+                                }`}
                             >
                                 {getGapLabel(item)}
                             </span>
@@ -212,7 +225,7 @@ function HR({ setUser }) {
 
     return (
         <AppShell>
-            <PageWrap max="max-w-3xl">
+            <PageWrap max="max-w-6xl">
                 <PageHeader
                     title="HR Dashboard"
                     right={(
@@ -281,7 +294,6 @@ function HR({ setUser }) {
                                 exportFileName={`${selectedDept || "Department"} Employees`}
                                 empty={<p className="py-2 text-sm text-slate-500">No employees found in this department.</p>}
                                 getKey={(emp) => emp.id}
-                                cardClassName="grid gap-3 sm:grid-cols-2"
                                 columns={[
                                     {
                                         key: "name",
@@ -306,12 +318,14 @@ function HR({ setUser }) {
                                         header: "Improvements",
                                         getValue: (emp) => {
                                             const gaps = employeeGaps[emp.id]?.gaps ?? null;
-                                            const improvementItems = Array.isArray(gaps)
-                                                ? gaps.filter((item) => item.needs_improvement)
+                                            const flagged = Array.isArray(gaps)
+                                                ? gaps.filter(
+                                                      (item) => item.needs_improvement || item.manager_flagged
+                                                  )
                                                 : [];
                                             if (gaps === null) return "No ratings yet";
-                                            if (improvementItems.length === 0) return "None";
-                                            return improvementItems.map((item) => getGapLabel(item)).join(", ");
+                                            if (flagged.length === 0) return "None";
+                                            return flagged.map((item) => getGapLabel(item)).join(", ");
                                         }
                                     },
                                     {

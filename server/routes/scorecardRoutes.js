@@ -16,6 +16,16 @@ const metrics = [
     "delivery_quality"
 ];
 
+function sanitizeImprovementFlags(raw) {
+    if (!Array.isArray(raw)) return [];
+    const set = new Set();
+    for (const v of raw) {
+        const s = typeof v === "string" ? v.trim().toLowerCase() : "";
+        if (metrics.includes(s)) set.add(s);
+    }
+    return [...set];
+}
+
 router.post("/scorecard", (req, res) => {
     const user = checkAuth(req);
     if (!user) return res.status(401).send("no auth");
@@ -32,7 +42,8 @@ router.post("/scorecard", (req, res) => {
         ownership,
         adaptability,
         delivery_quality,
-        comment
+        comment,
+        improvement_flags
     } = req.body;
 
     const requiredIds = [review_id, employee_id, reviewer_id];
@@ -67,7 +78,8 @@ router.post("/scorecard", (req, res) => {
         ownership,
         adaptability,
         delivery_quality,
-        comment: comment ?? ""
+        comment: comment ?? "",
+        improvement_flags: sanitizeImprovementFlags(improvement_flags)
     };
 
     store.scorecards.push(newScorecard);
@@ -118,7 +130,8 @@ router.put("/scorecard/:id", (req, res) => {
         ownership,
         adaptability,
         delivery_quality,
-        comment
+        comment,
+        improvement_flags
     } = req.body;
 
     if (review_id !== undefined) scorecard.review_id = review_id;
@@ -133,6 +146,9 @@ router.put("/scorecard/:id", (req, res) => {
     if (adaptability !== undefined) scorecard.adaptability = adaptability;
     if (delivery_quality !== undefined) scorecard.delivery_quality = delivery_quality;
     if (comment !== undefined) scorecard.comment = comment;
+    if (improvement_flags !== undefined) {
+        scorecard.improvement_flags = sanitizeImprovementFlags(improvement_flags);
+    }
 
     res.json(scorecard);
 });
@@ -142,6 +158,13 @@ router.get("/scorecard/gaps/:employee_id", (req, res) => {
     const employeeScorecards = store.scorecards.filter(s => s.employee_id === employeeId);
     const count = employeeScorecards.length;
 
+    const managerFlagged = {};
+    employeeScorecards.forEach((s) => {
+        sanitizeImprovementFlags(s.improvement_flags).forEach((p) => {
+            managerFlagged[p] = true;
+        });
+    });
+
     const gaps = metrics
         .map(param => {
             const total = employeeScorecards.reduce((sum, s) => sum + (s[param] ?? 0), 0);
@@ -149,7 +172,8 @@ router.get("/scorecard/gaps/:employee_id", (req, res) => {
             return {
                 param,
                 avg,
-                needs_improvement: avg < 3.0
+                needs_improvement: avg < 3.0,
+                manager_flagged: managerFlagged[param] === true
             };
         })
         .sort((a, b) => a.avg - b.avg);

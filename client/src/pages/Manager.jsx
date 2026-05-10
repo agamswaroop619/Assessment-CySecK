@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-import { AppShell, Avatar, Card, CommonEditableGrid, CommonGrid, Input, PageHeader, PageWrap, SoftButton } from "../components/ui";
+import {
+    AppShell,
+    Avatar,
+    Card,
+    CommonEditableGrid,
+    CommonGrid,
+    Input,
+    PageHeader,
+    PageWrap,
+    Pill,
+    SoftButton
+} from "../components/ui";
 import { toTitleCaseName } from "../utils/formatName";
 
 const BASE = "http://localhost:7250";
@@ -16,6 +27,40 @@ const SCORE_PARAMS = [
     { key: "deliveryQuality", label: "Delivery Quality" }
 ];
 
+const METRIC_BACKEND_KEYS = new Set([
+    "technical_skills",
+    "communication",
+    "teamwork",
+    "leadership",
+    "problem_solving",
+    "ownership",
+    "adaptability",
+    "delivery_quality"
+]);
+
+function sanitizeImprovementFlagsClient(flags) {
+    if (!Array.isArray(flags)) return [];
+    return [
+        ...new Set(
+            flags
+                .map((f) => String(f).trim().toLowerCase())
+                .filter((f) => METRIC_BACKEND_KEYS.has(f))
+        )
+    ];
+}
+
+/** Same metric order as scoring; snake_case matches API / HR gaps. */
+const IMPROVEMENT_AREA_OPTIONS = [
+    { param: "technical_skills", label: "Technical Skills" },
+    { param: "communication", label: "Communication" },
+    { param: "teamwork", label: "Teamwork" },
+    { param: "leadership", label: "Leadership" },
+    { param: "problem_solving", label: "Problem Solving" },
+    { param: "ownership", label: "Ownership" },
+    { param: "adaptability", label: "Adaptability" },
+    { param: "delivery_quality", label: "Delivery Quality" }
+];
+
 function clampScore(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return 1;
@@ -28,6 +73,7 @@ function normalizeFormScores(form) {
     SCORE_PARAMS.forEach((param) => {
         next[param.key] = clampScore(next[param.key]);
     });
+    next.improvementFlags = sanitizeImprovementFlagsClient(form.improvementFlags);
     return next;
 }
 
@@ -120,13 +166,9 @@ function Manager({ setUser }) {
         ownership: 3,
         adaptability: 3,
         deliveryQuality: 3,
-        comment: ""
+        comment: "",
+        improvementFlags: []
     });
-
-    const ensureFormState = (reviewId) => {
-        if (formState[reviewId]) return;
-        setFormState((prev) => ({ ...prev, [reviewId]: getDefaultForm() }));
-    };
 
     const updateFormField = (reviewId, key, value) => {
         setFormState((prev) => ({
@@ -138,6 +180,19 @@ function Manager({ setUser }) {
         }));
     };
 
+    const toggleImprovementFlag = (reviewId, param) => {
+        setFormState((prev) => {
+            const cur = prev[reviewId] ?? getDefaultForm();
+            const next = new Set(sanitizeImprovementFlagsClient(cur.improvementFlags));
+            if (next.has(param)) next.delete(param);
+            else next.add(param);
+            return {
+                ...prev,
+                [reviewId]: { ...cur, improvementFlags: [...next] }
+            };
+        });
+    };
+
     const mapScorecardToForm = (scorecard) => ({
         technicalSkills: scorecard.technical_skills ?? scorecard.technicalSkills ?? 3,
         communication: scorecard.communication ?? 3,
@@ -147,7 +202,10 @@ function Manager({ setUser }) {
         ownership: scorecard.ownership ?? 3,
         adaptability: scorecard.adaptability ?? 3,
         deliveryQuality: scorecard.delivery_quality ?? scorecard.deliveryQuality ?? 3,
-        comment: scorecard.comment ?? ""
+        comment: scorecard.comment ?? "",
+        improvementFlags: sanitizeImprovementFlagsClient(
+            scorecard.improvement_flags ?? scorecard.improvementFlags ?? []
+        )
     });
 
     const getManagerScorecard = (employeeId) => {
@@ -191,7 +249,8 @@ function Manager({ setUser }) {
                         ownership: reviewForm.ownership,
                         adaptability: reviewForm.adaptability,
                         delivery_quality: reviewForm.deliveryQuality,
-                        comment: reviewForm.comment
+                        comment: reviewForm.comment,
+                        improvement_flags: reviewForm.improvementFlags ?? []
                     })
                 }
             );
@@ -227,7 +286,7 @@ function Manager({ setUser }) {
         }
     };
 
-    const openReviewForm = (rev, isExpanded) => {
+    const openReviewForm = async (rev, isExpanded) => {
         const nextId = isExpanded ? null : rev.id;
         if (!nextId) {
             setExpandedRevId(null);
@@ -243,7 +302,28 @@ function Manager({ setUser }) {
             }));
             setIsEditing((prev) => ({ ...prev, [rev.id]: false }));
         } else {
-            ensureFormState(rev.id);
+            let improvementFlags = [];
+            if (user?.id) {
+                try {
+                    const res = await fetch(`${BASE}/scorecard/gaps/${employeeId}`, {
+                        headers: { "x-user": String(user.id) }
+                    });
+                    const data = await res.json();
+                    const gapList = data?.gaps;
+                    if (Array.isArray(gapList)) {
+                        improvementFlags = gapList
+                            .filter((g) => g.needs_improvement)
+                            .map((g) => g.param)
+                            .filter((p) => METRIC_BACKEND_KEYS.has(p));
+                    }
+                } catch {
+                    /* prefill optional */
+                }
+            }
+            setFormState((prev) => ({
+                ...prev,
+                [rev.id]: { ...getDefaultForm(), improvementFlags }
+            }));
             setIsEditing((prev) => ({ ...prev, [rev.id]: true }));
         }
         setExpandedRevId(nextId);
@@ -268,7 +348,7 @@ function Manager({ setUser }) {
 
     return (
         <AppShell>
-            <PageWrap max="max-w-3xl">
+            <PageWrap max="max-w-6xl">
                 <PageHeader
                     title="Manager Dashboard"
                     right={(
@@ -288,8 +368,9 @@ function Manager({ setUser }) {
                         items={reviews}
                         storageKey="manager-reviews-view"
                         defaultView="card"
+                        showTableView={false}
                         exportFileName="Manager Reviews"
-                        cardClassName="grid gap-5 sm:grid-cols-2"
+                        cardClassName="grid grid-cols-1 gap-5 md:grid-cols-2"
                         empty={(
                             <Card>
                                 <p className="text-center text-sm text-slate-500">No reviews assigned</p>
@@ -397,49 +478,131 @@ function Manager({ setUser }) {
 
                                     {isExpanded && (
                                         <div className="mt-4 space-y-4 rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
-                                            <CommonEditableGrid
-                                                rows={SCORE_PARAMS}
-                                                getKey={(param) => param.key}
-                                                columns={[
-                                                    {
-                                                        key: "metric",
-                                                        header: "Metric",
-                                                        render: (param) => (
-                                                            <span className="text-sm font-medium text-slate-700">{param.label}</span>
-                                                        )
-                                                    },
-                                                    {
-                                                        key: "score",
-                                                        header: "Score",
-                                                        renderEdit: (param) => (
-                                                            <Input
-                                                                type="number"
-                                                                min="1"
-                                                                max="5"
-                                                                step="1"
-                                                                inputMode="numeric"
-                                                                value={reviewForm[param.key]}
-                                                                onChange={(e) =>
-                                                                    updateFormField(
-                                                                        rev.id,
-                                                                        param.key,
-                                                                        clampScore(e.target.value)
-                                                                    )
-                                                                }
+                                            <div className="md:hidden">
+                                                <CommonEditableGrid
+                                                    rows={SCORE_PARAMS}
+                                                    getKey={(param) => param.key}
+                                                    columns={[
+                                                        {
+                                                            key: "metric",
+                                                            header: "Metric",
+                                                            render: (param) => (
+                                                                <span className="text-sm font-medium text-slate-700">{param.label}</span>
+                                                            )
+                                                        },
+                                                        {
+                                                            key: "score",
+                                                            header: "Score",
+                                                            renderEdit: (param) => (
+                                                                <Input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    max="5"
+                                                                    step="1"
+                                                                    inputMode="numeric"
+                                                                    value={reviewForm[param.key]}
+                                                                    onChange={(e) =>
+                                                                        updateFormField(
+                                                                            rev.id,
+                                                                            param.key,
+                                                                            clampScore(e.target.value)
+                                                                        )
+                                                                    }
+                                                                    disabled={!canEditFields}
+                                                                    className="max-w-24"
+                                                                />
+                                                            )
+                                                        },
+                                                        {
+                                                            key: "value",
+                                                            header: "",
+                                                            className: "w-12 text-right font-semibold",
+                                                            render: (param) => reviewForm[param.key]
+                                                        }
+                                                    ]}
+                                                    tableWrapClassName="overflow-x-auto rounded-2xl border border-violet-100 bg-slate-50/60"
+                                                />
+                                            </div>
+
+                                            <div className="hidden md:block">
+                                                <div className="overflow-x-auto rounded-2xl border border-violet-100 bg-slate-50/60">
+                                                    <table className="w-full min-w-[52rem] border-collapse text-slate-700">
+                                                        <thead>
+                                                            <tr className="border-b border-violet-100 bg-violet-50/50">
+                                                                {SCORE_PARAMS.map((param) => (
+                                                                    <th
+                                                                        key={param.key}
+                                                                        scope="col"
+                                                                        className="px-2 py-2.5 text-center text-[10px] font-semibold uppercase leading-snug tracking-wide text-slate-600 sm:text-[11px]"
+                                                                    >
+                                                                        {param.label}
+                                                                    </th>
+                                                                ))}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr>
+                                                                {SCORE_PARAMS.map((param) => (
+                                                                    <td
+                                                                        key={param.key}
+                                                                        className="border-t border-violet-100/80 px-2 py-2 align-middle"
+                                                                    >
+                                                                        <Input
+                                                                            type="number"
+                                                                            min="1"
+                                                                            max="5"
+                                                                            step="1"
+                                                                            inputMode="numeric"
+                                                                            value={reviewForm[param.key]}
+                                                                            onChange={(e) =>
+                                                                                updateFormField(
+                                                                                    rev.id,
+                                                                                    param.key,
+                                                                                    clampScore(e.target.value)
+                                                                                )
+                                                                            }
+                                                                            disabled={!canEditFields}
+                                                                            className="mx-auto block w-full min-w-0 max-w-[3.75rem] text-center text-sm tabular-nums"
+                                                                        />
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-2xl border border-violet-100/90 bg-slate-50/60 p-3">
+                                                <p className="text-sm font-medium text-slate-700">
+                                                    Improvement focus
+                                                </p>
+                                                <p className="mb-2.5 text-xs text-slate-500">
+                                                    Select any metrics where this employee should prioritize improvement
+                                                    (same dimensions as HR skill-gap flags). New reviews suggest flags
+                                                    when the team average score for that metric is below 3.
+                                                </p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {IMPROVEMENT_AREA_OPTIONS.map((opt) => {
+                                                        const selected = (reviewForm.improvementFlags ?? []).includes(
+                                                            opt.param
+                                                        );
+                                                        return (
+                                                            <Pill
+                                                                key={opt.param}
+                                                                type="button"
                                                                 disabled={!canEditFields}
-                                                                className="max-w-24"
-                                                            />
-                                                        )
-                                                    },
-                                                    {
-                                                        key: "value",
-                                                        header: "",
-                                                        className: "w-12 text-right font-semibold",
-                                                        render: (param) => reviewForm[param.key]
-                                                    }
-                                                ]}
-                                                tableWrapClassName="overflow-x-auto rounded-2xl border border-violet-100 bg-slate-50/60"
-                                            />
+                                                                active={selected}
+                                                                onClick={() =>
+                                                                    canEditFields &&
+                                                                    toggleImprovementFlag(rev.id, opt.param)
+                                                                }
+                                                            >
+                                                                {opt.label}
+                                                            </Pill>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
 
                                             <textarea
                                                 rows={3}
