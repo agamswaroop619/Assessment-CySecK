@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Login from "./pages/login";
 import Admin from "./pages/Admin";
 import Emp from "./pages/Emp";
@@ -7,16 +7,14 @@ import Manager from "./pages/Manager";
 import HR from "./pages/HR";
 
 function App() {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
+  const [user, setUser] = useState(() => {
     try {
       const data = localStorage.getItem("user");
-      if (data) setUser(JSON.parse(data));
+      return data ? JSON.parse(data) : null;
     } catch {
-      setUser(null);
+      return null;
     }
-  }, []);
+  });
 
   return (
     <BrowserRouter>

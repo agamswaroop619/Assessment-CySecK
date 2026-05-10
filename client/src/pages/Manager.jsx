@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-import { AppShell, Card, PageHeader, PageWrap, SoftButton } from "../components/ui";
+import { AppShell, Card, CommonGrid, PageHeader, PageWrap, SoftButton } from "../components/ui";
 
 const BASE = "http://localhost:7250";
 const SCORE_PARAMS = [
@@ -267,14 +267,20 @@ function Manager({ setUser }) {
                         <p className="text-sm text-slate-500">Loading manager data...</p>
                     </Card>
                 ) : (
-                    <div className="space-y-5">
-                        {reviews.length === 0 && (
+                    <CommonGrid
+                        header="Reviews"
+                        items={reviews}
+                        storageKey="manager-reviews-view"
+                        defaultView="list"
+                        listClassName="space-y-5"
+                        cardClassName="grid gap-5 sm:grid-cols-2"
+                        empty={(
                             <Card>
                                 <p className="text-center text-sm text-slate-500">No reviews assigned</p>
                             </Card>
                         )}
-
-                        {reviews.map((rev) => {
+                        getKey={(rev) => rev.id}
+                        renderCard={(rev) => {
                             const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
                             const empName = emps.find((emp) => emp.id === employeeId)?.name ?? `Employee #${employeeId}`;
                             const isRated = hasManagerRating(employeeId);
@@ -289,10 +295,7 @@ function Manager({ setUser }) {
                             const feedbackItems = peerFeedbackByReview[rev.id] ?? [];
 
                             return (
-                                <Card
-                                    key={rev.id}
-                                    className="transition hover:border-violet-200"
-                                >
+                                <Card className="transition hover:border-violet-200">
                                     <div
                                         onClick={() => openReviewForm(rev, isExpanded)}
                                         className="mb-3 cursor-pointer"
@@ -302,8 +305,8 @@ function Manager({ setUser }) {
                                             <span
                                                 className={`rounded-full px-3 py-1 text-xs font-medium ${
                                                     isRated
-                                                        ? "bg-emerald-100 text-emerald-700"
-                                                        : "bg-amber-100 text-amber-700"
+                                                        ? "bg-emerald-100/80 text-emerald-500"
+                                                        : "bg-amber-100/80 text-amber-500"
                                                 }`}
                                             >
                                                 {isRated ? "Rated" : "Pending"}
@@ -328,7 +331,7 @@ function Manager({ setUser }) {
                                                         value={reviewForm[param.key]}
                                                         onChange={(e) => updateFormField(rev.id, param.key, Number(e.target.value))}
                                                         disabled={!canEditFields}
-                                                        className="w-full accent-violet-500"
+                                                        className="w-full accent-violet-300"
                                                     />
                                                     <span className="text-right text-sm font-semibold text-slate-700">
                                                         {reviewForm[param.key]}
@@ -350,7 +353,7 @@ function Manager({ setUser }) {
                                                     <button
                                                         type="button"
                                                         onClick={() => setIsEditing((prev) => ({ ...prev, [rev.id]: true }))}
-                                                        className="rounded-xl border border-violet-200 bg-white px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50"
+                                                        className="rounded-xl border border-violet-200 bg-violet-100/60 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-200/70"
                                                     >
                                                         Edit
                                                     </button>
@@ -359,12 +362,12 @@ function Manager({ setUser }) {
                                                     type="button"
                                                     onClick={() => submitRating(rev)}
                                                     disabled={isSubmitting || !canEditFields}
-                                                    className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    className="rounded-xl bg-violet-200 px-4 py-2 text-sm font-medium text-violet-800 transition hover:bg-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
                                                 >
                                                     {isSubmitting ? "Submitting..." : existingScorecard ? "Save Changes" : "Submit Rating"}
                                                 </button>
                                                 <span
-                                                    className={`text-sm text-emerald-700 transition-opacity duration-300 ${
+                                                    className={`text-sm text-emerald-500 transition-opacity duration-300 ${
                                                         isSaved ? "opacity-100" : "opacity-0"
                                                     }`}
                                                 >
@@ -376,7 +379,7 @@ function Manager({ setUser }) {
                                                 <button
                                                     type="button"
                                                     onClick={() => togglePeerFeedback(rev.id)}
-                                                    className="text-sm font-medium text-slate-700 transition hover:text-slate-900"
+                                                    className="text-sm font-medium text-slate-700 transition hover:text-slate-700"
                                                 >
                                                     Peer Feedback {feedbackOpen ? "▲" : "▼"}
                                                 </button>
@@ -394,7 +397,7 @@ function Manager({ setUser }) {
                                                         {!feedbackLoading && feedbackItems.map((fb) => (
                                                             <div
                                                                 key={fb.id}
-                                                                className="whitespace-pre-wrap rounded-2xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700"
+                                                                className="whitespace-pre-wrap rounded-2xl border border-violet-100 bg-violet-50/70 px-3 py-2 text-sm text-slate-700"
                                                             >
                                                                 {fb.text}
                                                             </div>
@@ -406,8 +409,8 @@ function Manager({ setUser }) {
                                     )}
                                 </Card>
                             );
-                        })}
-                    </div>
+                        }}
+                    />
                 )}
             </PageWrap>
         </AppShell>

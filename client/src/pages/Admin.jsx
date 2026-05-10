@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
     AppShell,
     Card,
+    CommonGrid,
     Input,
     PageHeader,
     PageWrap,
@@ -12,6 +13,12 @@ import {
     Select,
     SoftButton
 } from "../components/ui";
+import {
+    downloadOnboardingTemplate,
+    ONBOARDING_ALLOWED_ROLES,
+    parseOnboardingCsvText,
+    parseOnboardingExcelFile
+} from "../utils/onboarding";
 
 const BASE = "http://localhost:7250";
 
@@ -66,6 +73,7 @@ function Admin({ setUser }) {
     const [rawInput, setRawInput] = useState("");
     const [parsedRows, setParsedRows] = useState([]);
     const [onboardResult, setOnboardResult] = useState({});
+    const [onboardFileError, setOnboardFileError] = useState("");
 
     const load = async () => {
         const e = await fetch(BASE + "/emps", { headers: { "x-user": user.id } });
@@ -74,7 +82,11 @@ function Admin({ setUser }) {
         setRevs(await r.json());
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        queueMicrotask(() => {
+            load();
+        });
+    }, []);
 
     // feedback modal
     const openReview = (rev) => {
@@ -159,22 +171,20 @@ function Admin({ setUser }) {
         );
     };
     const parseOnboardingInput = () => {
-        const rows = rawInput
-            .split("\n")
-            .map(line => line.trim())
-            .filter(line => line.length > 0)
-            .map((line) => {
-                const [name = "", pin = "", role = "", dept = ""] = line.split(",");
-                return {
-                    name: name.trim(),
-                    pin: pin.trim(),
-                    role: role.trim(),
-                    dept: dept.trim()
-                };
-            });
-
-        setParsedRows(rows);
+        setParsedRows(parseOnboardingCsvText(rawInput));
         setOnboardResult({});
+        setOnboardFileError("");
+    };
+    const uploadOnboardingFile = async (file) => {
+        if (!file) return;
+        setOnboardFileError("");
+        try {
+            const rows = await parseOnboardingExcelFile(file);
+            setParsedRows(rows);
+            setOnboardResult({});
+        } catch {
+            setOnboardFileError("Failed to read file. Please upload a valid .xlsx template.");
+        }
     };
     const submitOnboardingRows = async () => {
         if (parsedRows.length === 0) return;
@@ -214,14 +224,14 @@ function Admin({ setUser }) {
                 />
 
                 <div className="mb-6 flex flex-wrap gap-2">
-                    {TABS.map(({ key, label, icon: Icon }) => (
+                    {TABS.map(({ key, label, icon }) => (
                         <Pill
                             key={key}
                             onClick={() => setTab(key)}
                             active={tab === key}
                             className="flex items-center gap-2"
                         >
-                            <Icon size={14} />
+                            {icon({ size: 14 })}
                             {label}
                         </Pill>
                     ))}
@@ -247,15 +257,15 @@ function Admin({ setUser }) {
                             </PrimaryButton>
                         </div>
 
-                        <div className="space-y-2">
-                            {emps.length === 0 && (
-                                <p className="py-4 text-center text-sm text-slate-500">No employees yet</p>
-                            )}
-                            {emps.map((e) => (
-                                <div
-                                    key={e.id}
-                                    className="flex items-center justify-between rounded-2xl border border-violet-100 bg-violet-50/40 px-3 py-2"
-                                >
+                        <CommonGrid
+                            header="Employees"
+                            items={emps}
+                            storageKey="admin-employees-view"
+                            defaultView="list"
+                            empty={<p className="py-4 text-center text-sm text-slate-500">No employees yet</p>}
+                            getKey={(e) => e.id}
+                            renderRow={(e) => (
+                                <div className="flex items-center justify-between rounded-2xl border border-violet-100 bg-violet-50/40 px-3 py-2">
                                     <span className="text-sm text-slate-700">
                                         {e.name} <span className="text-slate-400">({e.pin})</span>
                                     </span>
@@ -263,16 +273,38 @@ function Admin({ setUser }) {
                                         <FiEdit2
                                             size={14}
                                             onClick={() => openEditEmp(e)}
-                                            className="cursor-pointer text-slate-400 transition hover:text-violet-600"
+                                            className="cursor-pointer text-slate-400 transition hover:text-violet-500"
                                         />
                                         <FiTrash2
                                             onClick={() => delEmp(e.id)}
-                                            className="cursor-pointer text-slate-400 transition hover:text-rose-500"
+                                            className="cursor-pointer text-slate-400 transition hover:text-rose-400"
                                         />
                                     </div>
                                 </div>
-                            ))}
-                        </div>
+                            )}
+                            renderCard={(e) => (
+                                <div className="rounded-2xl border border-violet-100 bg-white/90 p-4 shadow-sm">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-800">{e.name}</p>
+                                            <p className="mt-0.5 text-xs text-slate-500">PIN: {e.pin}</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <FiEdit2
+                                                size={16}
+                                                onClick={() => openEditEmp(e)}
+                                                className="cursor-pointer text-slate-400 transition hover:text-violet-500"
+                                            />
+                                            <FiTrash2
+                                                size={16}
+                                                onClick={() => delEmp(e.id)}
+                                                className="cursor-pointer text-slate-400 transition hover:text-rose-400"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        />
                     </Card>
                 )}
 
@@ -328,13 +360,39 @@ function Admin({ setUser }) {
                             <h2 className="text-lg font-medium text-slate-800">Reviews</h2>
                         </div>
 
-                        <div className="space-y-3">
-                            {revs.length === 0 && (
-                                <p className="py-4 text-center text-sm text-slate-500">No reviews created yet</p>
-                            )}
-                            {revs.map((r) => (
+                        <CommonGrid
+                            header="Reviews"
+                            items={revs}
+                            storageKey="admin-reviews-view"
+                            defaultView="card"
+                            empty={<p className="py-4 text-center text-sm text-slate-500">No reviews created yet</p>}
+                            getKey={(r) => r.id}
+                            listClassName="space-y-2"
+                            cardClassName="grid gap-3 sm:grid-cols-2"
+                            renderRow={(r) => (
                                 <div
-                                    key={r.id}
+                                    onClick={() => openReview(r)}
+                                    className="cursor-pointer rounded-2xl border border-violet-100 bg-white/80 px-3 py-2 transition hover:bg-violet-50/40"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-medium text-slate-800">{r.title}</p>
+                                            <p className="mt-1 text-xs text-slate-500">
+                                                Employee: {emps.find(e => e.id === r.empId)?.name ?? r.empId}
+                                            </p>
+                                        </div>
+                                        <SoftButton
+                                            onClick={(e) => openEditRev(r, e)}
+                                            className="flex shrink-0 items-center gap-1 px-3 py-1.5 text-xs"
+                                        >
+                                            <FiEdit2 size={11} />
+                                            Edit
+                                        </SoftButton>
+                                    </div>
+                                </div>
+                            )}
+                            renderCard={(r) => (
+                                <div
                                     onClick={() => openReview(r)}
                                     className="cursor-pointer rounded-2xl border border-violet-100 bg-violet-50/40 p-4 transition hover:bg-violet-50"
                                 >
@@ -358,8 +416,8 @@ function Admin({ setUser }) {
                                     </div>
                                     <p className="mt-2 text-xs text-slate-400">Click to view feedback</p>
                                 </div>
-                            ))}
-                        </div>
+                            )}
+                        />
                     </Card>
                 )}
 
@@ -368,6 +426,29 @@ function Admin({ setUser }) {
                         <div className="mb-5 flex items-center gap-2">
                             <FiUpload />
                             <h2 className="text-lg font-medium text-slate-800">Onboarding</h2>
+                        </div>
+
+                        <div className="mb-4 flex flex-wrap gap-2">
+                            <SoftButton
+                                type="button"
+                                onClick={downloadOnboardingTemplate}
+                                className="flex items-center gap-2"
+                            >
+                                Download template
+                            </SoftButton>
+                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-violet-200 bg-violet-100/70 px-4 py-2.5 text-sm font-medium text-violet-800 transition hover:bg-violet-200/80">
+                                Upload Excel
+                                <input
+                                    type="file"
+                                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        uploadOnboardingFile(file);
+                                        e.target.value = "";
+                                    }}
+                                />
+                            </label>
                         </div>
 
                         <textarea
@@ -381,6 +462,12 @@ function Admin({ setUser }) {
                         <PrimaryButton onClick={parseOnboardingInput} className="mb-5">
                             Parse
                         </PrimaryButton>
+
+                        {onboardFileError && (
+                            <p className="mb-3 text-sm font-medium text-rose-500">
+                                {onboardFileError}
+                            </p>
+                        )}
 
                         <div className="overflow-x-auto rounded-2xl border border-violet-100">
                             <table className="min-w-full divide-y divide-violet-100">
@@ -401,12 +488,17 @@ function Admin({ setUser }) {
                                         </tr>
                                     )}
                                     {parsedRows.map((row, index) => {
-                                        const isRoleValid = ["admin", "hr", "manager", "employee"].includes(row.role.toLowerCase());
+                                        const isRoleValid = ONBOARDING_ALLOWED_ROLES.includes(String(row.role ?? "").toLowerCase());
+                                        const pin = Number(row.pin);
+                                        const isPinValid = Number.isInteger(pin) && pin >= 100000 && pin <= 999999;
+                                        const isNameValid = String(row.name ?? "").trim().length > 0;
+                                        const isDeptValid = String(row.dept ?? "").trim().length > 0;
+                                        const isRowValid = isRoleValid && isPinValid && isNameValid && isDeptValid;
                                         return (
-                                            <tr key={`${row.name}-${row.pin}-${index}`} className={isRoleValid ? "" : "bg-rose-50"}>
+                                            <tr key={`${row.name}-${row.pin}-${index}`} className={isRowValid ? "" : "bg-rose-50"}>
                                                 <td className="px-3 py-2 text-sm text-slate-700">{row.name}</td>
                                                 <td className="px-3 py-2 text-sm text-slate-700">{row.pin}</td>
-                                                <td className={`px-3 py-2 text-sm ${isRoleValid ? "text-slate-700" : "font-medium text-rose-700"}`}>
+                                                <td className={`px-3 py-2 text-sm ${isRoleValid ? "text-slate-700" : "font-medium text-rose-500"}`}>
                                                     {row.role}
                                                 </td>
                                                 <td className="px-3 py-2 text-sm text-slate-700">{row.dept}</td>
@@ -426,7 +518,7 @@ function Admin({ setUser }) {
                         </PrimaryButton>
 
                         {onboardResult.created !== undefined && (
-                            <p className="mt-3 text-sm font-medium text-emerald-600">
+                            <p className="mt-3 text-sm font-medium text-emerald-500">
                                 {onboardResult.created} users created
                             </p>
                         )}
@@ -434,7 +526,7 @@ function Admin({ setUser }) {
                         {Array.isArray(onboardResult.failed) && onboardResult.failed.length > 0 && (
                             <div className="mt-2 space-y-1">
                                 {onboardResult.failed.map((failure, index) => (
-                                    <p key={`${failure.row}-${index}`} className="text-sm text-rose-600">
+                                    <p key={`${failure.row}-${index}`} className="text-sm text-rose-500">
                                         Row {failure.row}: {failure.reason}
                                     </p>
                                 ))}
@@ -446,7 +538,7 @@ function Admin({ setUser }) {
 
             {selectedRev && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-800/25 px-4"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-300/35 px-4"
                     onClick={closeReview}
                 >
                     <Card className="w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
@@ -459,7 +551,7 @@ function Admin({ setUser }) {
                             </div>
                             <button
                                 onClick={closeReview}
-                                className="ml-4 mt-0.5 cursor-pointer text-slate-400 transition hover:text-slate-700"
+                                className="ml-4 mt-0.5 cursor-pointer text-slate-400 transition hover:text-slate-600"
                             >
                                 <FiX size={18} />
                             </button>
@@ -490,13 +582,13 @@ function Admin({ setUser }) {
 
             {editEmp && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-800/25 px-4"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-300/35 px-4"
                     onClick={closeEditEmp}
                 >
                     <Card className="w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
                         <div className="mb-5 flex items-center justify-between">
                             <h3 className="text-lg font-semibold text-slate-800">Edit Employee</h3>
-                            <button onClick={closeEditEmp} className="cursor-pointer text-slate-400 transition hover:text-slate-700">
+                            <button onClick={closeEditEmp} className="cursor-pointer text-slate-400 transition hover:text-slate-600">
                                 <FiX size={18} />
                             </button>
                         </div>
@@ -524,13 +616,13 @@ function Admin({ setUser }) {
 
             {editRev && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-800/25 px-4"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-300/35 px-4"
                     onClick={closeEditRev}
                 >
                     <Card className="w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
                         <div className="mb-5 flex items-center justify-between">
                             <h3 className="text-lg font-semibold text-slate-800">Edit Review</h3>
-                            <button onClick={closeEditRev} className="cursor-pointer text-slate-400 transition hover:text-slate-700">
+                            <button onClick={closeEditRev} className="cursor-pointer text-slate-400 transition hover:text-slate-600">
                                 <FiX size={18} />
                             </button>
                         </div>

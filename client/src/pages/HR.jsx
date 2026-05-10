@@ -11,7 +11,8 @@ import {
     YAxis
 } from "recharts";
 import { useNavigate } from "react-router-dom";
-import { AppShell, Card, PageHeader, PageWrap, SoftButton } from "../components/ui";
+import { AppShell, Card, CommonGrid, PageHeader, PageWrap, SoftButton } from "../components/ui";
+import { getChartTheme, getRatingColor } from "../theme/colors";
 
 const BASE = "http://localhost:7250";
 const PARAM_CONFIG = [
@@ -121,11 +122,8 @@ function HR({ setUser }) {
         [emps, selectedDept]
     );
 
-    const getBarColor = (avgValue) => {
-        if (avgValue >= 4) return "#639922";
-        if (avgValue >= 3) return "#BA7517";
-        return "#E24B4A";
-    };
+    const chartTheme = useMemo(() => getChartTheme(), []);
+    const getBarColor = (avgValue) => getRatingColor(avgValue);
 
     const getGapLabel = (gapItem) => {
         const raw =
@@ -136,6 +134,71 @@ function HR({ setUser }) {
             "";
         const normalized = String(raw).trim().toLowerCase().replace(/\s+/g, "_");
         return PARAM_LABELS[normalized] ?? raw ?? "Unknown";
+    };
+
+    const renderEmployeeGaps = (emp, view) => {
+        const gaps = employeeGaps[emp.id]?.gaps ?? null;
+        const improvementItems = Array.isArray(gaps)
+            ? gaps.filter((item) => item.needs_improvement)
+            : [];
+
+        return (
+            <div
+                className={
+                    view === "card"
+                        ? "rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm"
+                        : "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                }
+            >
+                <div className="flex flex-wrap items-center gap-2">
+                    <p className="mr-2 text-sm font-medium text-slate-800">{emp.name}</p>
+                    {gaps === null ? (
+                        <p className="text-xs text-slate-500">No ratings yet</p>
+                    ) : improvementItems.length === 0 ? (
+                        <p className="text-xs text-slate-500">No improvement flags</p>
+                    ) : (
+                        improvementItems.map((item, idx) => (
+                            <span
+                                key={`${emp.id}-${idx}`}
+                                className="rounded-full bg-rose-100/80 px-2.5 py-1 text-xs font-medium text-rose-500"
+                            >
+                                {getGapLabel(item)}
+                            </span>
+                        ))
+                    )}
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() =>
+                        setOpenComments((prev) => ({
+                            ...prev,
+                            [emp.id]: !prev[emp.id]
+                        }))
+                    }
+                    className="mt-2 text-xs font-medium text-slate-600 transition hover:text-slate-700"
+                >
+                    {openComments[emp.id] ? "▼" : "▶"} Comments ({(employeeGaps[emp.id]?.comments ?? []).length})
+                </button>
+
+                {openComments[emp.id] && (
+                    <div className="mt-2 space-y-2">
+                        {(employeeGaps[emp.id]?.comments ?? []).length === 0 ? (
+                            <p className="text-xs text-slate-500">No comments yet</p>
+                        ) : (
+                            (employeeGaps[emp.id]?.comments ?? []).map((comment, idx) => (
+                                <div
+                                    key={`${emp.id}-comment-${idx}`}
+                                    className="whitespace-pre-wrap rounded-2xl border border-violet-100 bg-violet-50/60 px-3 py-3 text-sm text-slate-600"
+                                >
+                                    {typeof comment === "string" ? comment : comment?.text ?? ""}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -180,9 +243,9 @@ function HR({ setUser }) {
                             <div className="h-[360px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 28, left: 12, bottom: 8 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#ece8ff" />
-                                        <XAxis type="number" domain={[0, 5]} tick={{ fill: "#64748b", fontSize: 12 }} />
-                                        <YAxis dataKey="name" type="category" width={130} tick={{ fill: "#475569", fontSize: 12 }} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+                                        <XAxis type="number" domain={[0, 5]} tick={{ fill: chartTheme.xAxis, fontSize: 12 }} />
+                                        <YAxis dataKey="name" type="category" width={130} tick={{ fill: chartTheme.yAxis, fontSize: 12 }} />
                                         <Bar dataKey="value" radius={[0, 8, 8, 0]}>
                                             {chartData.map((entry) => (
                                                 <Cell key={entry.name} fill={getBarColor(entry.value)} />
@@ -191,7 +254,7 @@ function HR({ setUser }) {
                                                 dataKey="value"
                                                 position="right"
                                                 formatter={(value) => Number(value).toFixed(2)}
-                                                fill="#334155"
+                                                fill={chartTheme.label}
                                                 fontSize={12}
                                             />
                                         </Bar>
@@ -201,69 +264,18 @@ function HR({ setUser }) {
                             <p className="text-xs text-slate-500">
                                 Employee gap entries loaded: {Object.keys(employeeGaps).length}
                             </p>
-                            <div className="space-y-2">
-                                {employeesInDept.map((emp) => {
-                                    const gaps = employeeGaps[emp.id]?.gaps ?? null;
-                                    const improvementItems = Array.isArray(gaps)
-                                        ? gaps.filter((item) => item.needs_improvement)
-                                        : [];
-
-                                    return (
-                                        <div
-                                            key={emp.id}
-                                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
-                                        >
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <p className="mr-2 text-sm font-medium text-slate-800">{emp.name}</p>
-                                                {gaps === null ? (
-                                                    <p className="text-xs text-slate-500">No ratings yet</p>
-                                                ) : improvementItems.length === 0 ? (
-                                                    <p className="text-xs text-slate-500">No improvement flags</p>
-                                                ) : (
-                                                    improvementItems.map((item, idx) => (
-                                                        <span
-                                                            key={`${emp.id}-${idx}`}
-                                                            className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700"
-                                                        >
-                                                            {getGapLabel(item)}
-                                                        </span>
-                                                    ))
-                                                )}
-                                            </div>
-
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setOpenComments((prev) => ({
-                                                        ...prev,
-                                                        [emp.id]: !prev[emp.id]
-                                                    }))
-                                                }
-                                                className="mt-2 text-xs font-medium text-slate-600 transition hover:text-slate-800"
-                                            >
-                                                {openComments[emp.id] ? "▼" : "▶"} Comments ({(employeeGaps[emp.id]?.comments ?? []).length})
-                                            </button>
-
-                                            {openComments[emp.id] && (
-                                                <div className="mt-2 space-y-2">
-                                                    {(employeeGaps[emp.id]?.comments ?? []).length === 0 ? (
-                                                        <p className="text-xs text-slate-500">No comments yet</p>
-                                                    ) : (
-                                                        (employeeGaps[emp.id]?.comments ?? []).map((comment, idx) => (
-                                                            <div
-                                                                key={`${emp.id}-comment-${idx}`}
-                                                                className="whitespace-pre-wrap rounded-2xl border border-violet-100 bg-violet-50/60 px-3 py-3 text-sm text-slate-600"
-                                                            >
-                                                                {typeof comment === "string" ? comment : comment?.text ?? ""}
-                                                            </div>
-                                                        ))
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                            <CommonGrid
+                                header="Employees"
+                                items={employeesInDept}
+                                storageKey="hr-employee-gaps-view"
+                                defaultView="list"
+                                empty={<p className="py-2 text-sm text-slate-500">No employees found in this department.</p>}
+                                getKey={(emp) => emp.id}
+                                listClassName="space-y-2"
+                                cardClassName="grid gap-3 sm:grid-cols-2"
+                                renderRow={(emp) => renderEmployeeGaps(emp, "list")}
+                                renderCard={(emp) => renderEmployeeGaps(emp, "card")}
+                            />
                         </div>
                     )}
                 </Card>

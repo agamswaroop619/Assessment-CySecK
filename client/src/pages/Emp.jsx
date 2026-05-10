@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { FiFileText, FiSend, FiLogOut } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import { getRatingColor } from "../theme/colors";
 import {
     AppShell,
     Card,
+    CommonGrid,
     PageHeader,
     PageWrap,
     PrimaryButton,
@@ -75,7 +77,11 @@ function Emp({ setUser }) {
         setMyRatings(Array.isArray(scorecardData) ? scorecardData : []);
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        queueMicrotask(() => {
+            load();
+        });
+    }, []);
 
     const submitFeedback = async (id) => {
         if (!feedbacks[id]) return;
@@ -110,25 +116,31 @@ function Emp({ setUser }) {
                     )}
                 />
 
-                <div className="space-y-5">
-                    {reviews.length === 0 && (
+                <CommonGrid
+                    header="Reviews"
+                    items={reviews}
+                    storageKey="emp-reviews-view"
+                    defaultView="list"
+                    listClassName="space-y-5"
+                    cardClassName="grid gap-5 sm:grid-cols-2"
+                    empty={(
                         <Card>
                             <p className="text-center text-sm text-slate-500">No reviews assigned yet</p>
                         </Card>
                     )}
-
-                    {reviews.map((r) => {
+                    getKey={(r) => r.id}
+                    renderCard={(r) => {
                         const isDone = alreadyGiven[r.id] !== undefined;
 
                         return (
-                            <Card key={r.id}>
+                            <Card>
                                 <div className="mb-3 flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-2 text-slate-700">
                                         <FiFileText />
                                         <h2 className="text-lg font-medium">{r.title}</h2>
                                     </div>
                                     {isDone && (
-                                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                                        <span className="rounded-full bg-emerald-100/80 px-3 py-1 text-xs font-medium text-emerald-500">
                                             Submitted
                                         </span>
                                     )}
@@ -167,8 +179,8 @@ function Emp({ setUser }) {
                                 )}
                             </Card>
                         );
-                    })}
-                </div>
+                    }}
+                />
 
                 <h2 className="mt-10 mb-6 text-3xl font-semibold tracking-tight text-slate-800">
                     My Ratings
@@ -181,7 +193,7 @@ function Emp({ setUser }) {
                         {myRatings.map((entry) => (
                             <div
                                 key={entry.id}
-                                className="rounded-xl border border-gray-100 bg-white p-5 shadow-md"
+                                className="rounded-xl border border-violet-100 bg-white/90 p-5 shadow-sm"
                             >
                                 <h3 className="mb-4 text-lg font-medium text-slate-800">
                                     Review #{entry.review_id}
@@ -191,15 +203,15 @@ function Emp({ setUser }) {
                                     {RATING_PARAMS.map((param) => {
                                         const score = Number(entry[param.key] ?? 0);
                                         const width = `${Math.max(0, Math.min(5, score)) / 5 * 100}%`;
-                                        const fillColor = score >= 4 ? "#16a34a" : score >= 3 ? "#f59e0b" : "#ef4444";
+                                        const fillColor = getRatingColor(score);
 
                                         return (
                                             <div key={param.key} className="flex items-center gap-3">
-                                                <span className="w-36 shrink-0 text-[12px] text-gray-500">
+                                                <span className="w-36 shrink-0 text-[12px] text-slate-500">
                                                     {param.label}
                                                 </span>
                                                 <div className="flex flex-1 items-center gap-2">
-                                                    <div className="h-2 w-full rounded bg-gray-100">
+                                                    <div className="h-2 w-full rounded bg-violet-100/70">
                                                         <div
                                                             className="h-2 rounded"
                                                             style={{ width, backgroundColor: fillColor }}
@@ -216,11 +228,11 @@ function Emp({ setUser }) {
 
                                 <div className="mt-5">
                                     <p className="mb-2 text-sm font-medium text-slate-700">Manager&apos;s Comment</p>
-                                    <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+                                    <div className="rounded-md border border-violet-100 bg-violet-50/60 px-3 py-3 text-sm text-slate-700">
                                         {entry.comment ? (
                                             <p className="whitespace-pre-wrap">{entry.comment}</p>
                                         ) : (
-                                            <p className="italic text-gray-500">No comment left.</p>
+                                            <p className="italic text-slate-500">No comment left.</p>
                                         )}
                                     </div>
                                 </div>

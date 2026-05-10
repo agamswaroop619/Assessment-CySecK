@@ -41,7 +41,7 @@ function Login({ setUser }) {
             } else {
                 navigate("/employee");
             }
-        } catch (err) {
+        } catch {
             setError("Server error. Please try again.");
         }
     };
@@ -89,7 +89,7 @@ function Login({ setUser }) {
                         </div>
 
                         {error && (
-                            <p className="mb-3 text-sm text-rose-500">{error}</p>
+                            <p className="mb-3 text-sm text-rose-400">{error}</p>
                         )}
 
                         <PrimaryButton
