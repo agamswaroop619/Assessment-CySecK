@@ -1,29 +1,35 @@
 # CySecK Assessment 2 Frontend
 
-This is the fronend code for CySecK Assessment 2. its a simple app to handle employee perfromance reviews.
+this is the frontend app for cyseck assessment 2. it handles auth and role-based dashboards for admin, manager, hr, and employee.
 
-### tech stack 
-- **React + Vite** 
-- **Tailwind CSS** (for all the stlyling)
-- **React Router Dom** (handels the page switching)
-- **React Icons** 
+### Tech Stack
+- **react + vite**
+- **tailwind css** (styling)
+- **react router** (role-based routes and redirects)
+- **react icons** (ui icons)
+- **recharts** (hr analytics visualizations)
 
-### how it works
-basically we have 3 main views:
-- **Login:** simple pin based entry. checks who you are and sends you to the right dashboard.
-- **Admin Dashbaord:** this is tab based. admins can add emplyees, create new reviews, assgin reviewers, and read through feedback popups and update if want.
-- **Emplyee page:** action driven. employees login, see what reviews they are assigned to, and can submit thier feedback. once submitted, the card locks out and just shows what they wrote in a green badge state.
+### How It Works
+we have 5 main views:
+- **login:** `name + auth` flow, then stores user in localStorage.
+- **admin dashboard:** tab-based flow for employees, review create/edit, feedback modal, and bulk onboarding input.
+- **manager dashboard:** submits 8-parameter scorecards, edits saved ratings, and opens peer feedback per review.
+- **hr dashboard:** department selector with average charts, skill-gap flags, and comments view.
+- **employee dashboard:** sees assigned reviews, submits feedback once per review, and views own scorecard ratings.
 
-we keep state local to the components and just make async `fetch` calls to our local backend. simple and straighforward.
+state is kept local in components, and data calls are simple `fetch` requests to backend (`http://localhost:7250`).
 
-### how to run
-1. open terminal in this folder
+### How To Run
+1. open a terminal in this folder
 2. run `npm install`
-3. hit `npm run dev`
+3. run `npm run dev`
+4. app runs at `localhost:7150`
 
-### features included
-- route guarding (cant bypass login)
-- dynamic tab navigation for admins
-- instant pop up modles for viewing and editing reviews
-- auto lock out on employee feedback (prevents double submits)
+### Features Included
+- role route guards and redirects based on `user.role`
+- localStorage session bootstrap on app load
+- admin tab workflow for employee/review/onboarding actions
+- manager scorecard submit + edit flow
+- hr analytics chart + gap highlighting
+- one-time feedback submit lock for employees
 

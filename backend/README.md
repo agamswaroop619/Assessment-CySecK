@@ -1,26 +1,28 @@
 # CySecK Assessment 2 Backend
 
-hey, this is the backend server for CySecK Assessment 2. i kept everything as simple as humanly possible so it runs entirely in menory. no need to setup any databses or deal with heavy ORMs.
+hey, this is the backend server for cyseck assessment 2. kept it intentionally lean so everything runs in memory. no db setup, no orm config, no migrations.
 
-### tech stack
-- **Express.js** (the standard way to build servers in node)
-- **Cors** (so the fronend can actually talk to it without browser blocking)
-- **Node.js** (runtime obv)
+### Tech Stack
+- **express.js** (REST API server)
+- **cors** (lets frontend call backend without browser blocking)
+- **node.js** (runtime)
 
-### how it works
-because its an in menory desgin, all the data (`emps`, `revs`, `fb`) are just arrays living while the server is running. if you restart the server, everything wipes clean back to default hardcded state. 
+### How It Works
+because its an in-memory setup, all data (`emps`, `revs`, `fb`, `scorecards`) lives in arrays while the server runs. if you restart it, data resets to seed state from `config.js`.
 
-its simple REST over http:
-- **Auth:** we don't have real JWTs or sessions. the client just passes `x-user` id in headers and the server belives it. super basic just for the assessement.
-- **Login:** `/login` post checks name and pin against our `emps` array.
-- **Employees:** standard CRUD to add, delete, and edit (PUT) employees.
-- **Reviews:** GET and POST for reviews, along with PUT to edit title/assginments. `/my-revs/:empId` joins the names so frontend doesn't have to doing it.
-- **Feedback:** isolated to `/fb` for submisisons and fetching.
+its plain REST over HTTP:
+- **auth model:** no jwt/session. client sends `x-user` header and backend checks that the id exists.
+- **login:** `POST /login` validates `name + auth` and returns user profile (id, role, dept).
+- **employees:** `GET/POST /emps`, `PUT/DELETE /emps/:id`.
+- **reviews:** `GET/POST /revs`, `PUT /revs/:id`, and `GET /my-revs/:empId`.
+- **feedback:** `GET /fb/:reviewId`, `POST /fb` (blocks duplicate submit per `reviewId + fromId`).
+- **scorecard:** `POST /scorecard`, `GET /scorecard/:employee_id`, `PUT /scorecard/:id`, `GET /scorecard/gaps/:employee_id`, `GET /scorecard/dept-summary?dept=...`.
+- **onboarding:** `POST /onboarding` for bulk user creation from parsed input rows.
 
-### how to run
-1. open terminal in this backend folder
+### How To Run
+1. open a terminal in this backend folder
 2. run `npm install`
-3. hit `npm run start` or `node server.js`
-4. runs on `localhost:7250`
+3. run `npm run start` or `node server.js`
+4. server runs on `localhost:7250`
 
 
