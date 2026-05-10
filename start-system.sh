@@ -38,8 +38,13 @@ echo "start backend on 7250..."
 (cd "$BACKEND_DIR" && node server.js) &
 BACKEND_PID=$!
 
-echo "start client on 7150..."
-(cd "$CLIENT_DIR" && npm run dev) &
+if node -e 'const [maj,min]=process.versions.node.split(".").map(Number); process.exit((maj>20 || (maj===20 && min>=19)) ? 0 : 1)'; then
+  echo "start client on 7150 with local node $(node -v)..."
+  (cd "$CLIENT_DIR" && npm run dev) &
+else
+  echo "local node $(node -v) is older than vite requirement. starting client with node 20.19 via npx..."
+  (cd "$CLIENT_DIR" && npx -y node@20.19.0 ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port 7150) &
+fi
 CLIENT_PID=$!
 
 wait "$BACKEND_PID" "$CLIENT_PID"
