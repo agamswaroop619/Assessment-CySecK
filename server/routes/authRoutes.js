@@ -1,12 +1,18 @@
 import { Router } from "express";
 import store from "../store/dataStore.js";
+import { toTitleCaseName } from "../utils/formatName.js";
 import { genId } from "../utils/id.js";
 
 const router = Router();
 
 router.post("/login", (req, res) => {
-    const { name, pin } = req.body;
-    const user = store.emps.find(e => e.name === name && e.pin === pin);
+    const { name, password } = req.body;
+    const normalizedName = toTitleCaseName(name);
+    const user = store.emps.find(
+        e =>
+            toTitleCaseName(e.name) === normalizedName &&
+            (e.password === password || e.pin === password)
+    );
 
     if (!user) {
         console.log("login fail:", name);
@@ -16,9 +22,10 @@ router.post("/login", (req, res) => {
     console.log("login:", user.name);
     res.json({
         id: user.id,
-        name: user.name,
+        name: toTitleCaseName(user.name),
         role: user.role,
-        dept: user.dept
+        dept: user.dept,
+        avatarUrl: user.avatarUrl
     });
 });
 
@@ -42,15 +49,17 @@ router.post("/onboarding", (req, res) => {
             return;
         }
 
-        const { name, pin, role, dept } = entry;
+        const password = entry.password ?? entry.pin;
+
+        const { name, role, dept, avatarUrl } = entry;
 
         if (typeof name !== "string" || name.trim() === "") {
             failed.push({ row, reason: "name must be non-empty string" });
             return;
         }
 
-        if (!Number.isInteger(pin) || pin < 100000 || pin > 999999) {
-            failed.push({ row, reason: "pin must be 6-digit number" });
+        if (!Number.isInteger(password) || password < 100000 || password > 999999) {
+            failed.push({ row, reason: "password must be 6-digit number" });
             return;
         }
 
@@ -64,12 +73,17 @@ router.post("/onboarding", (req, res) => {
             return;
         }
 
+        const id = genId();
         store.emps.push({
-            id: genId(),
-            name: name.trim(),
-            pin,
+            id,
+            name: toTitleCaseName(name),
+            password,
             role,
-            dept: dept.trim()
+            dept: dept.trim(),
+            avatarUrl:
+                typeof avatarUrl === "string" && avatarUrl.trim() !== ""
+                    ? avatarUrl.trim()
+                    : `https://i.pravatar.cc/100?u=${encodeURIComponent(String(id))}`
         });
         created += 1;
     });

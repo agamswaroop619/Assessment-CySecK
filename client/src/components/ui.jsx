@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { FiColumns, FiDownload, FiGrid, FiList } from "react-icons/fi";
+import { AnimatePresence, motion } from "framer-motion";
+import { FiColumns, FiDownload, FiGrid } from "react-icons/fi";
+
+const MotionDiv = motion.div;
 
 function escapeCsvCell(value) {
     const str = value === null || value === undefined ? "" : String(value);
@@ -49,11 +52,11 @@ function exportAsPrintableTable({ title, columns, items, getCellText }) {
 <meta charset="utf-8">
 <title>${escapeHtml(title)}</title>
 <style>
-body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; color:#0f172a; padding:24px;}
+body{font-family:"Plus Jakarta Sans",ui-sans-serif,system-ui,sans-serif; color:#1f242d; padding:24px;}
 h1{font-size:18px; margin:0 0 12px;}
 table{width:100%; border-collapse:collapse; font-size:12px;}
-th,td{border:1px solid #e2e8f0; padding:8px; text-align:left; vertical-align:top;}
-th{background:#f8fafc; font-weight:600;}
+th,td{border:1px solid #efdd98; padding:8px; text-align:left; vertical-align:top;}
+th{background:#fff4c7; font-weight:600;}
 </style>
 </head>
 <body>
@@ -85,7 +88,7 @@ function escapeHtml(str) {
 
 export function AppShell({ children }) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-rose-50 via-sky-50 to-violet-50 text-slate-700">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50 text-slate-700">
             {children}
         </div>
     );
@@ -115,11 +118,23 @@ export function PageHeader({ title, right }) {
     );
 }
 
+export function Avatar({ src, alt = "", size = 32, className = "" }) {
+    return (
+        <img
+            src={src}
+            alt={alt}
+            className={`shrink-0 rounded-full object-cover ring-2 ring-slate-200/80 ${className}`}
+            style={{ width: size, height: size }}
+            loading="lazy"
+        />
+    );
+}
+
 export function Card({ children, className = "", ...props }) {
     return (
         <div
             {...props}
-            className={`rounded-3xl border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm ${className}`}
+            className={`rounded-3xl border border-slate-200/80 bg-slate-50/80 p-5 shadow-sm backdrop-blur-sm ${className}`}
         >
             {children}
         </div>
@@ -130,7 +145,7 @@ export function Input(props) {
     return (
         <input
             {...props}
-            className={`w-full rounded-2xl border border-violet-100 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100 ${props.className || ""}`}
+            className={`w-full rounded-2xl border border-violet-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100 ${props.className || ""}`}
         />
     );
 }
@@ -139,7 +154,7 @@ export function Select(props) {
     return (
         <select
             {...props}
-            className={`w-full rounded-2xl border border-violet-100 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100 ${props.className || ""}`}
+            className={`w-full rounded-2xl border border-violet-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100 ${props.className || ""}`}
         />
     );
 }
@@ -173,7 +188,7 @@ export function Pill({ active = false, children, className = "", ...props }) {
             className={`rounded-full border px-3 py-1 text-sm transition ${
                 active
                     ? "border-violet-300 bg-violet-200 text-violet-800"
-                    : "border-violet-200 bg-white/90 text-slate-600 hover:bg-violet-100/70"
+                    : "border-violet-200 bg-slate-50/90 text-slate-600 hover:bg-violet-100/70"
             } ${className}`}
         >
             {children}
@@ -185,23 +200,19 @@ export function CommonGrid({
     items = [],
     getKey,
     renderCard,
-    renderRow,
     columns,
     exportFileName,
     empty,
     header,
     storageKey,
-    defaultView = "list",
-    listClassName = "space-y-2",
+    defaultView = "card",
     cardClassName = "grid gap-3 sm:grid-cols-2",
-    tableWrapClassName = "overflow-x-auto rounded-2xl border border-violet-100 bg-white",
+    tableWrapClassName = "overflow-x-auto rounded-2xl border border-violet-100 bg-slate-50/70",
     className = "",
 }) {
-    const canList = !!(renderRow || renderCard);
     const canCard = !!renderCard;
     const canTable = Array.isArray(columns) && columns.length > 0;
     const viewOptions = [
-        ...(canList ? ["list"] : []),
         ...(canCard ? ["card"] : []),
         ...(canTable ? ["table"] : []),
     ];
@@ -209,7 +220,7 @@ export function CommonGrid({
     const resolveView = (value) => {
         if (viewOptions.includes(value)) return value;
         if (viewOptions.includes(defaultView)) return defaultView;
-        return viewOptions[0] || "list";
+        return viewOptions[0] || "card";
     };
 
     const [view, setView] = useState(() => {
@@ -267,25 +278,10 @@ export function CommonGrid({
 
     return (
         <div className={className}>
-            {(header || renderRow || renderCard || canTable) && (
+            {(header || renderCard || canTable) && (
                 <div className="mb-3 flex items-center justify-between gap-3">
                     <div className="text-sm font-medium text-slate-700">{header}</div>
                     <div className="flex items-center gap-2">
-                        {canList && (
-                            <button
-                                type="button"
-                                onClick={() => setViewAndPersist("list")}
-                                className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition ${
-                                    view === "list"
-                                        ? "border-violet-300 bg-violet-200 text-violet-800"
-                                        : "border-violet-200 bg-white/90 text-slate-600 hover:bg-violet-100/70"
-                                }`}
-                                aria-pressed={view === "list"}
-                            >
-                                <FiList size={16} />
-                                List
-                            </button>
-                        )}
                         {canCard && (
                             <button
                                 type="button"
@@ -293,7 +289,7 @@ export function CommonGrid({
                                 className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition ${
                                     view === "card"
                                         ? "border-violet-300 bg-violet-200 text-violet-800"
-                                        : "border-violet-200 bg-white/90 text-slate-600 hover:bg-violet-100/70"
+                                        : "border-violet-200 bg-slate-50/90 text-slate-600 hover:bg-violet-100/70"
                                 }`}
                                 aria-pressed={view === "card"}
                             >
@@ -308,7 +304,7 @@ export function CommonGrid({
                                 className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition ${
                                     view === "table"
                                         ? "border-violet-300 bg-violet-200 text-violet-800"
-                                        : "border-violet-200 bg-white/90 text-slate-600 hover:bg-violet-100/70"
+                                        : "border-violet-200 bg-slate-50/90 text-slate-600 hover:bg-violet-100/70"
                                 }`}
                                 aria-pressed={view === "table"}
                             >
@@ -322,7 +318,7 @@ export function CommonGrid({
                                 <button
                                     type="button"
                                     onClick={downloadCsv}
-                                    className="flex items-center gap-2 rounded-2xl border border-violet-200 bg-white/90 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-violet-100/70"
+                                    className="flex items-center gap-2 rounded-2xl border border-violet-200 bg-slate-50/90 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-violet-100/70"
                                 >
                                     <FiDownload size={16} />
                                     Excel
@@ -330,7 +326,7 @@ export function CommonGrid({
                                 <button
                                     type="button"
                                     onClick={downloadPdf}
-                                    className="flex items-center gap-2 rounded-2xl border border-violet-200 bg-white/90 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-violet-100/70"
+                                    className="flex items-center gap-2 rounded-2xl border border-violet-200 bg-slate-50/90 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-violet-100/70"
                                 >
                                     <FiDownload size={16} />
                                     PDF
@@ -360,7 +356,7 @@ export function CommonGrid({
                                 ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-violet-100 bg-white">
+                        <tbody className="divide-y divide-violet-100 bg-slate-50/60">
                             {items.map((item, rowIdx) => (
                                 <tr key={keyFn(item, rowIdx)} className="hover:bg-violet-50/30">
                                     {columns.map((col, colIdx) => (
@@ -384,15 +380,185 @@ export function CommonGrid({
                         </div>
                     ))}
                 </div>
-            ) : (
-                <div className={listClassName}>
-                    {items.map((item, idx) => (
-                        <div key={keyFn(item, idx)}>
-                            {renderRow ? renderRow(item, idx) : renderCard ? renderCard(item, idx) : null}
-                        </div>
-                    ))}
+            ) : null}
+        </div>
+    );
+}
+
+export function CommonEditableGrid({
+    rows = [],
+    columns = [],
+    getKey,
+    header,
+    right,
+    empty,
+    className = "",
+    tableWrapClassName = "overflow-x-auto rounded-2xl border border-violet-100 bg-slate-50/70",
+    editable = true
+}) {
+    const showEmpty = rows.length === 0;
+    const keyFn = getKey || ((row, idx) => idx);
+
+    return (
+        <div className={className}>
+            {(header || right) && (
+                <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="text-sm font-medium text-slate-700">{header}</div>
+                    {right}
                 </div>
             )}
+
+            {showEmpty ? (
+                empty || <p className="py-4 text-center text-sm text-slate-500">No items</p>
+            ) : (
+                <div className={tableWrapClassName}>
+                    <table className="min-w-full divide-y divide-violet-100">
+                        <thead className="bg-violet-50/40">
+                            <tr>
+                                {columns.map((col, idx) => (
+                                    <th
+                                        key={col.key ?? idx}
+                                        className={`px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 ${
+                                            col.headerClassName || ""
+                                        }`}
+                                    >
+                                        {col.header}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-violet-100 bg-slate-50/60">
+                            {rows.map((row, rowIdx) => (
+                                <tr key={keyFn(row, rowIdx)} className="hover:bg-violet-50/30">
+                                    {columns.map((col, colIdx) => (
+                                        <td
+                                            key={col.key ?? colIdx}
+                                            className={`px-3 py-2 text-sm text-slate-700 ${col.className || ""}`}
+                                        >
+                                            {editable && col.renderEdit
+                                                ? col.renderEdit(row, rowIdx)
+                                                : col.render
+                                                  ? col.render(row, rowIdx)
+                                                  : col.key
+                                                    ? row?.[col.key]
+                                                    : ""}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export function AnimatedPanel({
+    activeKey,
+    children,
+    className = "",
+    initial = { opacity: 0, y: 8 },
+    animate = { opacity: 1, y: 0 },
+    exit = { opacity: 0, y: -8 },
+    transition = { duration: 0.18 }
+}) {
+    return (
+        <AnimatePresence mode="wait">
+            <MotionDiv
+                key={String(activeKey)}
+                initial={initial}
+                animate={animate}
+                exit={exit}
+                transition={transition}
+                className={className}
+            >
+                {children}
+            </MotionDiv>
+        </AnimatePresence>
+    );
+}
+
+export function SideNav({
+    items = [],
+    activeKey,
+    onChange,
+    className = ""
+}) {
+    return (
+        <div className={`rounded-3xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm ${className}`}>
+            <div className="space-y-1.5">
+                {items.map((item) => {
+                    const Icon = item.icon;
+                    const active = item.key === activeKey;
+                    return (
+                        <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => onChange?.(item.key)}
+                            className={`relative flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm font-medium transition ${
+                                active ? "text-violet-800" : "text-slate-600 hover:bg-violet-50/70"
+                            }`}
+                            aria-current={active ? "page" : undefined}
+                        >
+                            {active && (
+                                <MotionDiv
+                                    layoutId="sideNavActive"
+                                    className="absolute inset-0 rounded-2xl bg-violet-100/80"
+                                    transition={{ type: "spring", stiffness: 520, damping: 42 }}
+                                />
+                            )}
+                            <span className="relative flex items-center gap-3">
+                                {Icon ? <Icon size={18} /> : null}
+                                {item.label}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+export function BottomNav({
+    items = [],
+    activeKey,
+    onChange,
+    className = ""
+}) {
+    return (
+        <div
+            className={`fixed bottom-0 left-0 right-0 z-40 border-t border-violet-100 bg-white/80 backdrop-blur-sm ${className}`}
+        >
+            <div className="mx-auto flex max-w-4xl items-stretch justify-around gap-2 px-3 py-2">
+                {items.map((item) => {
+                    const Icon = item.icon;
+                    const active = item.key === activeKey;
+                    return (
+                        <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => onChange?.(item.key)}
+                            className={`relative flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-semibold transition ${
+                                active ? "text-violet-800" : "text-slate-500"
+                            }`}
+                            aria-current={active ? "page" : undefined}
+                        >
+                            {active && (
+                                <MotionDiv
+                                    layoutId="bottomNavActive"
+                                    className="absolute inset-0 rounded-2xl bg-violet-100/80"
+                                    transition={{ type: "spring", stiffness: 520, damping: 42 }}
+                                />
+                            )}
+                            <span className="relative flex flex-col items-center gap-1">
+                                {Icon ? <Icon size={18} /> : null}
+                                <span>{item.label}</span>
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 }

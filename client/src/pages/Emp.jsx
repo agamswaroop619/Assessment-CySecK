@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getRatingColor } from "../theme/colors";
 import {
     AppShell,
+    Avatar,
     Card,
     CommonGrid,
     PageHeader,
@@ -11,6 +12,7 @@ import {
     PrimaryButton,
     SoftButton
 } from "../components/ui";
+import { toTitleCaseName } from "../utils/formatName";
 
 const BASE = "http://localhost:7250";
 const RATING_PARAMS = [
@@ -120,9 +122,8 @@ function Emp({ setUser }) {
                     header="Reviews"
                     items={reviews}
                     storageKey="emp-reviews-view"
-                    defaultView="list"
+                    defaultView="card"
                     exportFileName="My Reviews"
-                    listClassName="space-y-5"
                     cardClassName="grid gap-5 sm:grid-cols-2"
                     empty={(
                         <Card>
@@ -132,7 +133,11 @@ function Emp({ setUser }) {
                     getKey={(r) => r.id}
                     columns={[
                         { key: "title", header: "Title", getValue: (r) => r.title },
-                        { key: "employee", header: "Employee", getValue: (r) => r.empName },
+                        {
+                            key: "employee",
+                            header: "Employee",
+                            getValue: (r) => toTitleCaseName(r.empName ?? "")
+                        },
                         {
                             key: "status",
                             header: "Status",
@@ -141,6 +146,10 @@ function Emp({ setUser }) {
                     ]}
                     renderCard={(r) => {
                         const isDone = alreadyGiven[r.id] !== undefined;
+                        const displayName = toTitleCaseName(r.empName ?? "");
+                        const avatarSrc =
+                            r.empAvatarUrl ||
+                            `https://i.pravatar.cc/100?u=${encodeURIComponent(String(r.empId ?? r.empName ?? r.id))}`;
 
                         return (
                             <Card>
@@ -157,7 +166,13 @@ function Emp({ setUser }) {
                                 </div>
 
                                 <p className="mb-4 text-sm text-slate-500">
-                                    Reviewing: <span className="font-medium text-slate-800">{r.empName}</span>
+                                    <span className="inline-flex items-center gap-2">
+                                        <Avatar src={avatarSrc} alt={displayName} size={28} />
+                                        <span>
+                                            Reviewing:{" "}
+                                            <span className="font-medium text-slate-800">{displayName}</span>
+                                        </span>
+                                    </span>
                                 </p>
 
                                 {isDone ? (
@@ -168,7 +183,7 @@ function Emp({ setUser }) {
                                     <>
                                         <textarea
                                             placeholder="Write your feedback..."
-                                            className="mb-3 w-full resize-none rounded-2xl border border-violet-100 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                                            className="mb-3 w-full resize-none rounded-2xl border border-violet-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
                                             rows={3}
                                             value={feedbacks[r.id] || ""}
                                             onChange={(e) =>
@@ -203,7 +218,7 @@ function Emp({ setUser }) {
                         {myRatings.map((entry) => (
                             <div
                                 key={entry.id}
-                                className="rounded-xl border border-violet-100 bg-white/90 p-5 shadow-sm"
+                                className="rounded-xl border border-violet-100 bg-slate-50/90 p-5 shadow-sm"
                             >
                                 <h3 className="mb-4 text-lg font-medium text-slate-800">
                                     Review #{entry.review_id}

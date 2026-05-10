@@ -11,8 +11,9 @@ import {
     YAxis
 } from "recharts";
 import { useNavigate } from "react-router-dom";
-import { AppShell, Card, CommonGrid, PageHeader, PageWrap, SoftButton } from "../components/ui";
+import { AppShell, Avatar, Card, CommonGrid, PageHeader, PageWrap, SoftButton } from "../components/ui";
 import { getChartTheme, getRatingColor } from "../theme/colors";
+import { toTitleCaseName } from "../utils/formatName";
 
 const BASE = "http://localhost:7250";
 const PARAM_CONFIG = [
@@ -136,7 +137,7 @@ function HR({ setUser }) {
         return PARAM_LABELS[normalized] ?? raw ?? "Unknown";
     };
 
-    const renderEmployeeGaps = (emp, view) => {
+    const renderEmployeeGaps = (emp) => {
         const gaps = employeeGaps[emp.id]?.gaps ?? null;
         const improvementItems = Array.isArray(gaps)
             ? gaps.filter((item) => item.needs_improvement)
@@ -145,13 +146,21 @@ function HR({ setUser }) {
         return (
             <div
                 className={
-                    view === "card"
-                        ? "rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm"
-                        : "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                    "rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm"
                 }
             >
                 <div className="flex flex-wrap items-center gap-2">
-                    <p className="mr-2 text-sm font-medium text-slate-800">{emp.name}</p>
+                    <span className="mr-2 inline-flex items-center gap-2">
+                        <Avatar
+                            src={
+                                emp.avatarUrl ??
+                                `https://i.pravatar.cc/100?u=${encodeURIComponent(String(emp.id))}`
+                            }
+                            alt={toTitleCaseName(emp.name)}
+                            size={28}
+                        />
+                        <span className="text-sm font-medium text-slate-800">{toTitleCaseName(emp.name)}</span>
+                    </span>
                     {gaps === null ? (
                         <p className="text-xs text-slate-500">No ratings yet</p>
                     ) : improvementItems.length === 0 ? (
@@ -217,7 +226,7 @@ function HR({ setUser }) {
                     id="dept-filter"
                     value={selectedDept}
                     onChange={(e) => setSelectedDept(e.target.value)}
-                    className="mb-4 w-full rounded-2xl border border-violet-100 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    className="mb-4 w-full rounded-2xl border border-violet-100 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
                 >
                     <option value="" disabled>
                         Select a department
@@ -268,14 +277,30 @@ function HR({ setUser }) {
                                 header="Employees"
                                 items={employeesInDept}
                                 storageKey="hr-employee-gaps-view"
-                                defaultView="list"
+                                defaultView="card"
                                 exportFileName={`${selectedDept || "Department"} Employees`}
                                 empty={<p className="py-2 text-sm text-slate-500">No employees found in this department.</p>}
                                 getKey={(emp) => emp.id}
-                                listClassName="space-y-2"
                                 cardClassName="grid gap-3 sm:grid-cols-2"
                                 columns={[
-                                    { key: "name", header: "Employee", getValue: (emp) => emp.name },
+                                    {
+                                        key: "name",
+                                        header: "Employee",
+                                        getValue: (emp) => toTitleCaseName(emp.name),
+                                        render: (emp) => (
+                                            <span className="inline-flex items-center gap-2">
+                                                <Avatar
+                                                    src={
+                                                        emp.avatarUrl ??
+                                                        `https://i.pravatar.cc/100?u=${encodeURIComponent(String(emp.id))}`
+                                                    }
+                                                    alt={toTitleCaseName(emp.name)}
+                                                    size={24}
+                                                />
+                                                <span className="truncate">{toTitleCaseName(emp.name)}</span>
+                                            </span>
+                                        )
+                                    },
                                     {
                                         key: "improvements",
                                         header: "Improvements",
@@ -295,8 +320,7 @@ function HR({ setUser }) {
                                         getValue: (emp) => (employeeGaps[emp.id]?.comments ?? []).length
                                     }
                                 ]}
-                                renderRow={(emp) => renderEmployeeGaps(emp, "list")}
-                                renderCard={(emp) => renderEmployeeGaps(emp, "card")}
+                                renderCard={(emp) => renderEmployeeGaps(emp)}
                             />
                         </div>
                     )}

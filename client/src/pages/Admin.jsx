@@ -3,6 +3,9 @@ import { FiUserPlus, FiTrash2, FiPlusCircle, FiLogOut, FiClipboard, FiList, FiX,
 import { useNavigate } from "react-router-dom";
 import {
     AppShell,
+    AnimatedPanel,
+    Avatar,
+    BottomNav,
     Card,
     CommonGrid,
     Input,
@@ -11,6 +14,7 @@ import {
     Pill,
     PrimaryButton,
     Select,
+    SideNav,
     SoftButton
 } from "../components/ui";
 import {
@@ -19,8 +23,15 @@ import {
     parseOnboardingCsvText,
     parseOnboardingExcelFile
 } from "../utils/onboarding";
+import { toTitleCaseName } from "../utils/formatName";
 
 const BASE = "http://localhost:7250";
+
+function displayEmpPassword(emp) {
+    if (!emp) return "";
+    const v = emp.password ?? emp.pin;
+    return v === undefined || v === null ? "" : String(v);
+}
 
 const TABS = [
     { key: "employees", label: "Employees", icon: FiUserPlus },
@@ -48,6 +59,7 @@ function Admin({ setUser }) {
     const [tab, setTab] = useState("employees");
     const [emps, setEmps] = useState([]);
     const [revs, setRevs] = useState([]);
+    const getEmpById = (id) => emps.find((e) => e.id === id);
 
     // feedback modal
     const [selectedRev, setSelectedRev] = useState(null);
@@ -57,7 +69,7 @@ function Admin({ setUser }) {
     // edit emp popup
     const [editEmp, setEditEmp] = useState(null);
     const [editEmpName, setEditEmpName] = useState("");
-    const [editEmpPin, setEditEmpPin] = useState("");
+    const [editEmpPassword, setEditEmpPassword] = useState("");
 
     // edit review popup
     const [editRev, setEditRev] = useState(null);
@@ -102,15 +114,15 @@ function Admin({ setUser }) {
     // edit emp
     const openEditEmp = (e) => {
         setEditEmp(e);
-        setEditEmpName(e.name);
-        setEditEmpPin(String(e.pin));
+        setEditEmpName(toTitleCaseName(e.name));
+        setEditEmpPassword(displayEmpPassword(e));
     };
     const closeEditEmp = () => setEditEmp(null);
     const saveEmp = async () => {
         await fetch(`${BASE}/emps/${editEmp.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json", "x-user": user.id },
-            body: JSON.stringify({ name: editEmpName, pin: editEmpPin })
+            body: JSON.stringify({ name: editEmpName, password: editEmpPassword })
         });
         closeEditEmp();
         load();
@@ -222,20 +234,13 @@ function Admin({ setUser }) {
                         </SoftButton>
                     )}
                 />
-
-                <div className="mb-6 flex flex-wrap gap-2">
-                    {TABS.map(({ key, label, icon }) => (
-                        <Pill
-                            key={key}
-                            onClick={() => setTab(key)}
-                            active={tab === key}
-                            className="flex items-center gap-2"
-                        >
-                            {icon({ size: 14 })}
-                            {label}
-                        </Pill>
-                    ))}
-                </div>
+                <div className="pb-24 md:pb-0">
+                    <div className="md:flex md:items-start md:gap-6">
+                        <div className="hidden md:block md:w-64 md:shrink-0">
+                            <SideNav items={TABS} activeKey={tab} onChange={setTab} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <AnimatedPanel activeKey={tab}>
 
                 {tab === "employees" && (
                     <Card>
@@ -261,13 +266,34 @@ function Admin({ setUser }) {
                             header="Employees"
                             items={emps}
                             storageKey="admin-employees-view"
-                            defaultView="list"
+                            defaultView="card"
                             exportFileName="Employees"
                             empty={<p className="py-4 text-center text-sm text-slate-500">No employees yet</p>}
                             getKey={(e) => e.id}
                             columns={[
-                                { key: "name", header: "Name", getValue: (e) => e.name },
-                                { key: "pin", header: "PIN", getValue: (e) => e.pin },
+                                {
+                                    key: "name",
+                                    header: "Employee",
+                                    getValue: (e) => toTitleCaseName(e.name),
+                                    render: (e) => (
+                                        <span className="inline-flex items-center gap-2">
+                                            <Avatar
+                                                src={
+                                                    e.avatarUrl ??
+                                                    `https://i.pravatar.cc/100?u=${encodeURIComponent(String(e.id))}`
+                                                }
+                                                alt={toTitleCaseName(e.name)}
+                                                size={24}
+                                            />
+                                            <span className="truncate">{toTitleCaseName(e.name)}</span>
+                                        </span>
+                                    )
+                                },
+                                {
+                                    key: "password",
+                                    header: "Password",
+                                    getValue: (e) => displayEmpPassword(e)
+                                },
                                 {
                                     key: "actions",
                                     header: "Actions",
@@ -289,30 +315,26 @@ function Admin({ setUser }) {
                                     )
                                 }
                             ]}
-                            renderRow={(e) => (
-                                <div className="flex items-center justify-between rounded-2xl border border-violet-100 bg-violet-50/40 px-3 py-2">
-                                    <span className="text-sm text-slate-700">
-                                        {e.name} <span className="text-slate-400">({e.pin})</span>
-                                    </span>
-                                    <div className="flex items-center gap-3">
-                                        <FiEdit2
-                                            size={14}
-                                            onClick={() => openEditEmp(e)}
-                                            className="cursor-pointer text-slate-400 transition hover:text-violet-500"
-                                        />
-                                        <FiTrash2
-                                            onClick={() => delEmp(e.id)}
-                                            className="cursor-pointer text-slate-400 transition hover:text-rose-400"
-                                        />
-                                    </div>
-                                </div>
-                            )}
                             renderCard={(e) => (
-                                <div className="rounded-2xl border border-violet-100 bg-white/90 p-4 shadow-sm">
+                                <div className="rounded-2xl border border-violet-100 bg-slate-50/90 p-4 shadow-sm">
                                     <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <p className="text-sm font-medium text-slate-800">{e.name}</p>
-                                            <p className="mt-0.5 text-xs text-slate-500">PIN: {e.pin}</p>
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <Avatar
+                                                    src={
+                                                        e.avatarUrl ??
+                                                        `https://i.pravatar.cc/100?u=${encodeURIComponent(String(e.id))}`
+                                                    }
+                                                    alt={toTitleCaseName(e.name)}
+                                                    size={32}
+                                                />
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-medium text-slate-800">{toTitleCaseName(e.name)}</p>
+                                                    <p className="mt-0.5 text-xs text-slate-500">
+                                                        Password: {displayEmpPassword(e) || "—"}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <FiEdit2
@@ -354,7 +376,7 @@ function Admin({ setUser }) {
                         >
                             <option value="">Select employee being reviewed</option>
                             {emps.map((e) => (
-                                <option key={e.id} value={e.id}>{e.name}</option>
+                                <option key={e.id} value={e.id}>{toTitleCaseName(e.name)}</option>
                             ))}
                         </Select>
 
@@ -367,7 +389,7 @@ function Admin({ setUser }) {
                                     onClick={() => toggleAssign(e.id)}
                                     active={assignIds.includes(e.id)}
                                 >
-                                    {e.name}
+                                    {toTitleCaseName(e.name)}
                                 </Pill>
                             ))}
                         </div>
@@ -393,20 +415,40 @@ function Admin({ setUser }) {
                             exportFileName="Reviews"
                             empty={<p className="py-4 text-center text-sm text-slate-500">No reviews created yet</p>}
                             getKey={(r) => r.id}
-                            listClassName="space-y-2"
                             cardClassName="grid gap-3 sm:grid-cols-2"
                             columns={[
                                 { key: "title", header: "Title", getValue: (r) => r.title },
                                 {
                                     key: "employee",
                                     header: "Employee",
-                                    getValue: (r) => emps.find(e => e.id === r.empId)?.name ?? r.empId,
+                                    getValue: (r) => {
+                                        const emp = getEmpById(r.empId);
+                                        return emp ? toTitleCaseName(emp.name) : r.empId;
+                                    },
+                                    render: (r) => {
+                                        const emp = getEmpById(r.empId);
+                                        const name = emp ? toTitleCaseName(emp.name) : String(r.empId);
+                                        const avatarUrl =
+                                            emp?.avatarUrl ??
+                                            `https://i.pravatar.cc/100?u=${encodeURIComponent(String(r.empId))}`;
+                                        return (
+                                            <span className="inline-flex items-center gap-2">
+                                                <Avatar src={avatarUrl} alt={name} size={24} />
+                                                <span className="truncate">{name}</span>
+                                            </span>
+                                        );
+                                    }
                                 },
                                 {
                                     key: "assigned",
                                     header: "Assigned",
                                     getValue: (r) =>
-                                        r.assignedTo.map(id => emps.find(e => e.id === id)?.name ?? id).join(", ") || "none",
+                                        r.assignedTo
+                                            .map((id) => {
+                                                const a = getEmpById(id);
+                                                return a ? toTitleCaseName(a.name) : id;
+                                            })
+                                            .join(", ") || "none",
                                 },
                                 {
                                     key: "actions",
@@ -424,41 +466,41 @@ function Admin({ setUser }) {
                                     )
                                 }
                             ]}
-                            renderRow={(r) => (
-                                <div
-                                    onClick={() => openReview(r)}
-                                    className="cursor-pointer rounded-2xl border border-violet-100 bg-white/80 px-3 py-2 transition hover:bg-violet-50/40"
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-medium text-slate-800">{r.title}</p>
-                                            <p className="mt-1 text-xs text-slate-500">
-                                                Employee: {emps.find(e => e.id === r.empId)?.name ?? r.empId}
-                                            </p>
-                                        </div>
-                                        <SoftButton
-                                            onClick={(e) => openEditRev(r, e)}
-                                            className="flex shrink-0 items-center gap-1 px-3 py-1.5 text-xs"
-                                        >
-                                            <FiEdit2 size={11} />
-                                            Edit
-                                        </SoftButton>
-                                    </div>
-                                </div>
-                            )}
                             renderCard={(r) => (
                                 <div
                                     onClick={() => openReview(r)}
                                     className="cursor-pointer rounded-2xl border border-violet-100 bg-violet-50/40 p-4 transition hover:bg-violet-50"
                                 >
+                                    {(() => {
+                                        const emp = getEmpById(r.empId);
+                                        const name = emp ? toTitleCaseName(emp.name) : String(r.empId);
+                                        const avatarUrl =
+                                            emp?.avatarUrl ??
+                                            `https://i.pravatar.cc/100?u=${encodeURIComponent(String(r.empId))}`;
+                                        return (
+                                            <div className="mb-2 inline-flex items-center gap-2 text-sm text-slate-600">
+                                                <Avatar src={avatarUrl} alt={name} size={28} />
+                                                <span className="font-medium text-slate-800">{name}</span>
+                                            </div>
+                                        );
+                                    })()}
                                     <div className="flex items-start justify-between">
                                         <div>
                                             <p className="font-medium text-slate-800">{r.title}</p>
                                             <p className="mt-1 text-sm text-slate-500">
-                                                Employee: {emps.find(e => e.id === r.empId)?.name ?? r.empId}
+                                                Employee:{" "}
+                                                {getEmpById(r.empId)
+                                                    ? toTitleCaseName(getEmpById(r.empId).name)
+                                                    : r.empId}
                                             </p>
                                             <p className="mt-1 text-xs text-slate-400">
-                                                Assigned: {r.assignedTo.map(id => emps.find(e => e.id === id)?.name ?? id).join(", ") || "none"}
+                                                Assigned:{" "}
+                                                {r.assignedTo
+                                                    .map((id) => {
+                                                        const a = getEmpById(id);
+                                                        return a ? toTitleCaseName(a.name) : id;
+                                                    })
+                                                    .join(", ") || "none"}
                                             </p>
                                         </div>
                                         <SoftButton
@@ -508,10 +550,10 @@ function Admin({ setUser }) {
 
                         <textarea
                             rows={8}
-                            placeholder="name,pin,role,dept — one per line"
+                            placeholder="name,password,role,dept — one per line"
                             value={rawInput}
                             onChange={(e) => setRawInput(e.target.value)}
-                            className="mb-4 w-full resize-y rounded-2xl border border-violet-100 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                            className="mb-4 w-full resize-y rounded-2xl border border-violet-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
                         />
 
                         <PrimaryButton onClick={parseOnboardingInput} className="mb-5">
@@ -529,12 +571,12 @@ function Admin({ setUser }) {
                                 <thead className="bg-violet-50/40">
                                     <tr>
                                         <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Name</th>
-                                        <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">PIN</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Password</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Role</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Dept</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-violet-100 bg-white">
+                                <tbody className="divide-y divide-violet-100 bg-slate-50/60">
                                     {parsedRows.length === 0 && (
                                         <tr>
                                             <td colSpan={4} className="px-3 py-4 text-center text-sm text-slate-500">
@@ -544,15 +586,15 @@ function Admin({ setUser }) {
                                     )}
                                     {parsedRows.map((row, index) => {
                                         const isRoleValid = ONBOARDING_ALLOWED_ROLES.includes(String(row.role ?? "").toLowerCase());
-                                        const pin = Number(row.pin);
-                                        const isPinValid = Number.isInteger(pin) && pin >= 100000 && pin <= 999999;
+                                        const pwd = Number(row.password);
+                                        const isPasswordValid = Number.isInteger(pwd) && pwd >= 100000 && pwd <= 999999;
                                         const isNameValid = String(row.name ?? "").trim().length > 0;
                                         const isDeptValid = String(row.dept ?? "").trim().length > 0;
-                                        const isRowValid = isRoleValid && isPinValid && isNameValid && isDeptValid;
+                                        const isRowValid = isRoleValid && isPasswordValid && isNameValid && isDeptValid;
                                         return (
-                                            <tr key={`${row.name}-${row.pin}-${index}`} className={isRowValid ? "" : "bg-rose-50"}>
-                                                <td className="px-3 py-2 text-sm text-slate-700">{row.name}</td>
-                                                <td className="px-3 py-2 text-sm text-slate-700">{row.pin}</td>
+                                            <tr key={`${row.name}-${row.password}-${index}`} className={isRowValid ? "" : "bg-rose-50"}>
+                                                <td className="px-3 py-2 text-sm text-slate-700">{toTitleCaseName(row.name)}</td>
+                                                <td className="px-3 py-2 text-sm text-slate-700">{row.password}</td>
                                                 <td className={`px-3 py-2 text-sm ${isRoleValid ? "text-slate-700" : "font-medium text-rose-500"}`}>
                                                     {row.role}
                                                 </td>
@@ -589,7 +631,12 @@ function Admin({ setUser }) {
                         )}
                     </Card>
                 )}
+                            </AnimatedPanel>
+                        </div>
+                    </div>
+                </div>
             </PageWrap>
+            <BottomNav items={TABS} activeKey={tab} onChange={setTab} className="md:hidden" />
 
             {selectedRev && (
                 <div
@@ -601,7 +648,11 @@ function Admin({ setUser }) {
                             <div>
                                 <h3 className="text-lg font-semibold text-slate-800">{selectedRev.title}</h3>
                                 <p className="mt-0.5 text-sm text-slate-500">
-                                    Employee: {emps.find(e => e.id === selectedRev.empId)?.name ?? selectedRev.empId}
+                                    Employee:{" "}
+                                    {(() => {
+                                        const se = emps.find((e) => e.id === selectedRev.empId);
+                                        return se ? toTitleCaseName(se.name) : selectedRev.empId;
+                                    })()}
                                 </p>
                             </div>
                             <button
@@ -624,9 +675,25 @@ function Admin({ setUser }) {
                             )}
                             {!fbLoading && feedback.map((f) => (
                                 <div key={f.id} className="rounded-2xl border border-violet-100 bg-violet-50/40 p-3">
-                                    <p className="mb-1 text-xs font-medium text-slate-500">
-                                        {emps.find(e => e.id === f.fromId)?.name ?? `Employee #${f.fromId}`}
-                                    </p>
+                                    <div className="mb-1 inline-flex items-center gap-2 text-xs font-medium text-slate-500">
+                                        <Avatar
+                                            src={
+                                                getEmpById(f.fromId)?.avatarUrl ??
+                                                `https://i.pravatar.cc/100?u=${encodeURIComponent(String(f.fromId))}`
+                                            }
+                                            alt={
+                                                getEmpById(f.fromId)?.name
+                                                    ? toTitleCaseName(getEmpById(f.fromId).name)
+                                                    : `Employee #${f.fromId}`
+                                            }
+                                            size={22}
+                                        />
+                                        <span>
+                                            {getEmpById(f.fromId)?.name
+                                                ? toTitleCaseName(getEmpById(f.fromId).name)
+                                                : `Employee #${f.fromId}`}
+                                        </span>
+                                    </div>
                                     <p className="text-sm text-slate-700">{f.text}</p>
                                 </div>
                             ))}
@@ -656,10 +723,11 @@ function Admin({ setUser }) {
                         />
                         <Input
                             className="mb-5"
-                            placeholder="PIN"
-                            type="number"
-                            value={editEmpPin}
-                            onChange={(e) => setEditEmpPin(e.target.value)}
+                            placeholder="Password"
+                            type="text"
+                            autoComplete="new-password"
+                            value={editEmpPassword}
+                            onChange={(e) => setEditEmpPassword(e.target.value)}
                         />
 
                         <PrimaryButton onClick={saveEmp} className="w-full">
@@ -696,7 +764,7 @@ function Admin({ setUser }) {
                         >
                             <option value="">Select employee being reviewed</option>
                             {emps.map((e) => (
-                                <option key={e.id} value={e.id}>{e.name}</option>
+                                <option key={e.id} value={e.id}>{toTitleCaseName(e.name)}</option>
                             ))}
                         </Select>
 
@@ -709,7 +777,7 @@ function Admin({ setUser }) {
                                     onClick={() => toggleEditAssign(e.id)}
                                     active={editRevAssignIds.includes(e.id)}
                                 >
-                                    {e.name}
+                                    {toTitleCaseName(e.name)}
                                 </Pill>
                             ))}
                         </div>

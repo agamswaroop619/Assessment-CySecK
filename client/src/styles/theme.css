@@ -1,27 +1,30 @@
 @theme {
-  --color-slate-50: #f8fafc;
-  --color-slate-200: #e2e8f0;
-  --color-slate-300: #cbd5e1;
-  --color-slate-400: #94a3b8;
-  --color-slate-500: #64748b;
-  --color-slate-600: #475569;
-  --color-slate-700: #334155;
-  --color-slate-800: #1e293b;
+  /* Warm, readable UI sans — similar energy to system UI but more cohesive */
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 
-  --color-violet-50: #f5f3ff;
-  --color-violet-100: #ede9fe;
-  --color-violet-200: #ddd6fe;
-  --color-violet-300: #c4b5fd;
-  --color-violet-500: #8b5cf6;
-  --color-violet-700: #6d28d9;
-  --color-violet-800: #5b21b6;
+  --color-slate-50: #fffbe6;
+  --color-slate-200: #f6e9ba;
+  --color-slate-300: #efdd98;
+  --color-slate-400: #d4c16e;
+  --color-slate-500: #a8903b;
+  --color-slate-600: #76672a;
+  --color-slate-700: #3f3a20;
+  --color-slate-800: #1f242d;
+
+  --color-violet-50: #fffdf0;
+  --color-violet-100: #fff4c7;
+  --color-violet-200: #ffe599;
+  --color-violet-300: #ffd464;
+  --color-violet-500: #4f46e5;
+  --color-violet-700: #3730a3;
+  --color-violet-800: #312e81;
 
   --color-rose-50: #fff1f2;
   --color-rose-100: #ffe4e6;
   --color-rose-400: #fb7185;
   --color-rose-500: #f43f5e;
 
-  --color-sky-50: #f0f9ff;
+  --color-sky-50: #fff7e0;
 
   --color-emerald-100: #d1fae5;
   --color-emerald-500: #10b981;
@@ -33,7 +36,7 @@
   --color-rating-ok: #F2CFA4;
   --color-rating-bad: #F4B6C2;
 
-  --color-chart-grid: #ece8ff;
+  --color-chart-grid: #f3e7b6;
   --color-chart-xaxis: var(--color-slate-500);
   --color-chart-yaxis: var(--color-slate-600);
   --color-chart-label: var(--color-slate-700);

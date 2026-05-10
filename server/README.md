@@ -25,4 +25,6 @@ its plain REST over HTTP:
 3. run `npm run start` or `node server.js`
 4. server runs on `localhost:7250`
 
+for full-stack ports, one-shot startup, and how the client handles auth/UI, see the **repo root** `README.md`.
+
 

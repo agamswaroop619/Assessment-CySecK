@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-import { AppShell, Card, CommonGrid, PageHeader, PageWrap, SoftButton } from "../components/ui";
+import { AppShell, Avatar, Card, CommonEditableGrid, CommonGrid, Input, PageHeader, PageWrap, SoftButton } from "../components/ui";
+import { toTitleCaseName } from "../utils/formatName";
 
 const BASE = "http://localhost:7250";
 const SCORE_PARAMS = [
@@ -14,6 +15,21 @@ const SCORE_PARAMS = [
     { key: "adaptability", label: "Adaptability" },
     { key: "deliveryQuality", label: "Delivery Quality" }
 ];
+
+function clampScore(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 1;
+    const rounded = Math.round(num);
+    return Math.min(5, Math.max(1, rounded));
+}
+
+function normalizeFormScores(form) {
+    const next = { ...form };
+    SCORE_PARAMS.forEach((param) => {
+        next[param.key] = clampScore(next[param.key]);
+    });
+    return next;
+}
 
 function Manager({ setUser }) {
     const navigate = useNavigate();
@@ -149,7 +165,7 @@ function Manager({ setUser }) {
         if (!user?.id) return;
         const reviewId = rev.id;
         const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
-        const reviewForm = formState[reviewId] ?? getDefaultForm();
+        const reviewForm = normalizeFormScores(formState[reviewId] ?? getDefaultForm());
         const existing = getManagerScorecard(employeeId);
         const editingMode = !!isEditing[reviewId] && !!existing?.id;
 
@@ -271,9 +287,8 @@ function Manager({ setUser }) {
                         header="Reviews"
                         items={reviews}
                         storageKey="manager-reviews-view"
-                        defaultView="list"
+                        defaultView="card"
                         exportFileName="Manager Reviews"
-                        listClassName="space-y-5"
                         cardClassName="grid gap-5 sm:grid-cols-2"
                         empty={(
                             <Card>
@@ -288,7 +303,22 @@ function Manager({ setUser }) {
                                 header: "Employee",
                                 getValue: (rev) => {
                                     const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
-                                    return emps.find((emp) => emp.id === employeeId)?.name ?? `Employee #${employeeId}`;
+                                    const e = emps.find((emp) => emp.id === employeeId);
+                                    return e ? toTitleCaseName(e.name) : `Employee #${employeeId}`;
+                                },
+                                render: (rev) => {
+                                    const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
+                                    const emp = emps.find((e) => e.id === employeeId);
+                                    const name = emp ? toTitleCaseName(emp.name) : `Employee #${employeeId}`;
+                                    const avatarUrl =
+                                        emp?.avatarUrl ??
+                                        `https://i.pravatar.cc/100?u=${encodeURIComponent(String(employeeId))}`;
+                                    return (
+                                        <span className="inline-flex items-center gap-2">
+                                            <Avatar src={avatarUrl} alt={name} size={24} />
+                                            <span className="truncate">{name}</span>
+                                        </span>
+                                    );
                                 }
                             },
                             {
@@ -320,7 +350,10 @@ function Manager({ setUser }) {
                         ]}
                         renderCard={(rev) => {
                             const employeeId = rev.employee_id ?? rev.empId ?? rev.emp_id;
-                            const empName = emps.find((emp) => emp.id === employeeId)?.name ?? `Employee #${employeeId}`;
+                            const emp = emps.find((item) => item.id === employeeId);
+                            const empName = emp ? toTitleCaseName(emp.name) : `Employee #${employeeId}`;
+                            const avatarUrl =
+                                emp?.avatarUrl ?? `https://i.pravatar.cc/100?u=${encodeURIComponent(String(employeeId))}`;
                             const isRated = hasManagerRating(employeeId);
                             const isExpanded = expandedRevId === rev.id;
                             const reviewForm = formState[rev.id] ?? getDefaultForm();
@@ -352,35 +385,66 @@ function Manager({ setUser }) {
                                         </div>
 
                                         <p className="text-sm text-slate-500">
-                                            Reviewing: <span className="font-medium text-slate-800">{empName}</span>
+                                            <span className="inline-flex items-center gap-2">
+                                                <Avatar src={avatarUrl} alt={empName} size={28} />
+                                                <span>
+                                                    Reviewing:{" "}
+                                                    <span className="font-medium text-slate-800">{empName}</span>
+                                                </span>
+                                            </span>
                                         </p>
                                     </div>
 
                                     {isExpanded && (
                                         <div className="mt-4 space-y-4 rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
-                                            {SCORE_PARAMS.map((param) => (
-                                                <div key={param.key} className="grid grid-cols-[1fr,2fr,40px] items-center gap-3">
-                                                    <label className="text-sm font-medium text-slate-700">{param.label}</label>
-                                                    <input
-                                                        type="range"
-                                                        min="1"
-                                                        max="5"
-                                                        step="1"
-                                                        value={reviewForm[param.key]}
-                                                        onChange={(e) => updateFormField(rev.id, param.key, Number(e.target.value))}
-                                                        disabled={!canEditFields}
-                                                        className="w-full accent-violet-300"
-                                                    />
-                                                    <span className="text-right text-sm font-semibold text-slate-700">
-                                                        {reviewForm[param.key]}
-                                                    </span>
-                                                </div>
-                                            ))}
+                                            <CommonEditableGrid
+                                                rows={SCORE_PARAMS}
+                                                getKey={(param) => param.key}
+                                                columns={[
+                                                    {
+                                                        key: "metric",
+                                                        header: "Metric",
+                                                        render: (param) => (
+                                                            <span className="text-sm font-medium text-slate-700">{param.label}</span>
+                                                        )
+                                                    },
+                                                    {
+                                                        key: "score",
+                                                        header: "Score",
+                                                        renderEdit: (param) => (
+                                                            <Input
+                                                                type="number"
+                                                                min="1"
+                                                                max="5"
+                                                                step="1"
+                                                                inputMode="numeric"
+                                                                value={reviewForm[param.key]}
+                                                                onChange={(e) =>
+                                                                    updateFormField(
+                                                                        rev.id,
+                                                                        param.key,
+                                                                        clampScore(e.target.value)
+                                                                    )
+                                                                }
+                                                                disabled={!canEditFields}
+                                                                className="max-w-24"
+                                                            />
+                                                        )
+                                                    },
+                                                    {
+                                                        key: "value",
+                                                        header: "",
+                                                        className: "w-12 text-right font-semibold",
+                                                        render: (param) => reviewForm[param.key]
+                                                    }
+                                                ]}
+                                                tableWrapClassName="overflow-x-auto rounded-2xl border border-violet-100 bg-slate-50/60"
+                                            />
 
                                             <textarea
                                                 rows={3}
                                                 placeholder="Add a comment..."
-                                                className="w-full resize-none rounded-2xl border border-violet-100 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                                                className="w-full resize-none rounded-2xl border border-violet-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
                                                 value={reviewForm.comment}
                                                 onChange={(e) => updateFormField(rev.id, "comment", e.target.value)}
                                                 disabled={!canEditFields}
@@ -413,7 +477,7 @@ function Manager({ setUser }) {
                                                 </span>
                                             </div>
 
-                                            <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
+                                            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                                                 <button
                                                     type="button"
                                                     onClick={() => togglePeerFeedback(rev.id)}

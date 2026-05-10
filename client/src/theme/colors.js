@@ -2,10 +2,10 @@ const DEFAULTS = Object.freeze({
   ratingGood: "#9BCFA7",
   ratingOk: "#F2CFA4",
   ratingBad: "#F4B6C2",
-  chartGrid: "#ece8ff",
-  chartXAxis: "#64748b",
-  chartYAxis: "#475569",
-  chartLabel: "#334155"
+  chartGrid: "#f3e7b6",
+  chartXAxis: "#a8903b",
+  chartYAxis: "#76672a",
+  chartLabel: "#3f3a20"
 });
 
 export const CSS_VARS = Object.freeze({

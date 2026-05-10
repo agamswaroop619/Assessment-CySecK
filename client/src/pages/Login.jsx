@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell, Card, Input, PageWrap, PrimaryButton } from "../components/ui";
+import { toTitleCaseName } from "../utils/formatName";
 
 const BASE = "http://localhost:7250";
 
 function Login({ setUser }) {
     const [name, setName] = useState("");
-    const [pin, setPin] = useState("");
+    const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const navigate = useNavigate();
 
@@ -28,7 +29,7 @@ function Login({ setUser }) {
 
             const user = {
                 id: data.id,
-                name: data.name,
+                name: toTitleCaseName(data.name ?? ""),
                 role: data.role,
                 dept: data.dept,
             };
@@ -82,9 +83,9 @@ function Login({ setUser }) {
                         <div className="mb-4">
                             <Input
                                 type="password"
-                                placeholder="Enter PIN"
-                                value={pin}
-                                onChange={(e) => setPin(e.target.value)}
+                                placeholder="Enter password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
 

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import checkAuth from "../middleware/checkAuth.js";
 import store from "../store/dataStore.js";
+import { toTitleCaseName } from "../utils/formatName.js";
 import { genId } from "../utils/id.js";
 
 const router = Router();
@@ -53,7 +54,11 @@ router.get("/my-revs/:empId", (req, res) => {
         .filter(r => r.assignedTo.includes(empId))
         .map(r => {
             const emp = store.emps.find(e => e.id === r.empId);
-            return { ...r, empName: emp ? emp.name : "Unknown" };
+            return {
+                ...r,
+                empName: emp ? toTitleCaseName(emp.name) : "Unknown",
+                empAvatarUrl: emp?.avatarUrl
+            };
         });
 
     res.json(data);

@@ -25,6 +25,7 @@ lightweight employee performance + feedback app split into two parts: client + b
 - backend: node + express + cors
 - frontend: react + vite + tailwind
 - routing with react-router
+- motion: framer-motion (animated route changes between pages; admin tabs use side nav on desktop + bottom nav on mobile with matching transitions)
 - charts: recharts (hr analytics view)
 - icons: react-icons/fi
 - simple auth flow with `name + auth` plus `x-user` header
@@ -62,6 +63,7 @@ lightweight employee performance + feedback app split into two parts: client + b
 - app loads `user` from localStorage on startup
 - if logged in, `/` auto-redirects by role: `/admin`, `/hr`, `/manager`, `/employee`
 - unknown role or unauthenticated users get redirected to login
+- switching routes uses short enter/exit animations (helps especially on mobile)
 
 ### Scorecard Parameters
 1. **Technical Skills** - depth of technical knowledge and code quality
@@ -83,6 +85,7 @@ each parameter is rated 1-5 in manager scorecards. hr gap view flags parameters 
 - backend runs on `7250`
 - client runs on `7150`
 - press `ctrl + c` to stop both
+- client uses vite 8: use **node 20.19+** or **22.12+** locally if `npm run dev` / `npm run build` complains about the runtime
 
 ### Assumptions
 - no db in this phase; everything is intentionally in-memory and ephemeral

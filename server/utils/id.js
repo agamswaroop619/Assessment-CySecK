@@ -1,2 +1,3 @@
 export const genId = () => Date.now();
-export const genPin = () => Math.floor(100000 + Math.random() * 900000);
+/** Six-digit numeric password for auto-created employees */
+export const genPassword = () => Math.floor(100000 + Math.random() * 900000);

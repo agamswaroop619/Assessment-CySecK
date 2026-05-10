@@ -6,11 +6,11 @@ export function normalizeOnboardingRow(input) {
     const name = String(input?.name ?? "").trim();
     const role = String(input?.role ?? "").trim().toLowerCase();
     const dept = String(input?.dept ?? "").trim();
-    const pinRaw = input?.pin ?? "";
-    const pinStr = String(pinRaw).trim();
-    const pin = pinStr === "" ? NaN : Number(pinStr);
+    const pwdRaw = input?.password ?? input?.pin ?? "";
+    const pwdStr = String(pwdRaw).trim();
+    const password = pwdStr === "" ? NaN : Number(pwdStr);
 
-    return { name, pin, role, dept };
+    return { name, password, role, dept };
 }
 
 export function parseOnboardingCsvText(text) {
@@ -19,8 +19,8 @@ export function parseOnboardingCsvText(text) {
         .map(line => line.trim())
         .filter(line => line.length > 0)
         .map((line) => {
-            const [name = "", pin = "", role = "", dept = ""] = line.split(",");
-            return normalizeOnboardingRow({ name, pin, role, dept });
+            const [name = "", password = "", role = "", dept = ""] = line.split(",");
+            return normalizeOnboardingRow({ name, password, role, dept });
         });
 }
 
@@ -32,7 +32,7 @@ function extractByHeaderMap(row) {
     });
     return normalizeOnboardingRow({
         name: map.name,
-        pin: map.pin,
+        password: map.password ?? map.pin,
         role: map.role,
         dept: map.dept
     });
@@ -47,13 +47,13 @@ export async function parseOnboardingExcelFile(file) {
     const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
     return rows
         .map(extractByHeaderMap)
-        .filter(r => r.name || String(r.pin ?? "").trim() || r.role || r.dept);
+        .filter(r => r.name || String(r.password ?? "").trim() || r.role || r.dept);
 }
 
 export function downloadOnboardingTemplate() {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([
-        ["name", "pin", "role", "dept"],
+        ["name", "password", "role", "dept"],
         ["Jane Doe", 123456, "employee", "Engineering"]
     ]);
     XLSX.utils.book_append_sheet(wb, ws, "users");
