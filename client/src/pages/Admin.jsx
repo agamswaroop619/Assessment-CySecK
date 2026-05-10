@@ -25,6 +25,11 @@ import {
 } from "../utils/onboarding";
 import { toTitleCaseName } from "../utils/formatName";
 
+function formatRole(role) {
+    const r = (role ?? "employee").toString().trim().toLowerCase() || "employee";
+    return r.charAt(0).toUpperCase() + r.slice(1);
+}
+
 const BASE = "http://localhost:7250";
 
 function displayEmpPassword(emp) {
@@ -66,6 +71,12 @@ function Admin({ setUser }) {
     const [feedback, setFeedback] = useState([]);
     const [fbLoading, setFbLoading] = useState(false);
 
+    // add employee popup
+    const [addEmpOpen, setAddEmpOpen] = useState(false);
+    const [addEmpName, setAddEmpName] = useState("");
+    const [addEmpPassword, setAddEmpPassword] = useState("");
+    const [addEmpRole, setAddEmpRole] = useState("employee");
+
     // edit emp popup
     const [editEmp, setEditEmp] = useState(null);
     const [editEmpName, setEditEmpName] = useState("");
@@ -78,7 +89,6 @@ function Admin({ setUser }) {
     const [editRevAssignIds, setEditRevAssignIds] = useState([]);
 
     // create review form
-    const [name, setName] = useState("");
     const [title, setTitle] = useState("");
     const [empId, setEmpId] = useState("");
     const [assignIds, setAssignIds] = useState([]);
@@ -153,14 +163,28 @@ function Admin({ setUser }) {
     };
 
     // create emp / review
-    const addEmp = async () => {
-        if (!name) return;
+    const resetAddEmpForm = () => {
+        setAddEmpName("");
+        setAddEmpPassword("");
+        setAddEmpRole("employee");
+    };
+    const closeAddEmp = () => {
+        setAddEmpOpen(false);
+        resetAddEmpForm();
+    };
+    const submitAddEmp = async () => {
+        const trimmed = addEmpName.trim();
+        if (!trimmed) return;
         await fetch(BASE + "/emps", {
             method: "POST",
             headers: { "Content-Type": "application/json", "x-user": user.id },
-            body: JSON.stringify({ name })
+            body: JSON.stringify({
+                name: trimmed,
+                role: addEmpRole,
+                password: addEmpPassword.trim() === "" ? undefined : addEmpPassword.trim()
+            })
         });
-        setName("");
+        closeAddEmp();
         load();
     };
     const delEmp = async (id) => {
@@ -244,19 +268,16 @@ function Admin({ setUser }) {
 
                 {tab === "employees" && (
                     <Card>
-                        <div className="mb-5 flex items-center gap-2">
-                            <FiUserPlus />
-                            <h2 className="text-lg font-medium text-slate-800">Employees</h2>
-                        </div>
-
-                        <div className="mb-5 flex gap-2">
-                            <Input
-                                placeholder="Enter employee name"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && addEmp()}
-                            />
-                            <PrimaryButton onClick={addEmp} className="flex items-center gap-1 whitespace-nowrap">
+                        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-2">
+                                <FiUserPlus />
+                                <h2 className="text-lg font-medium text-slate-800">Employees</h2>
+                            </div>
+                            <PrimaryButton
+                                type="button"
+                                onClick={() => setAddEmpOpen(true)}
+                                className="flex w-full shrink-0 items-center justify-center gap-1 whitespace-nowrap sm:w-auto"
+                            >
                                 <FiPlusCircle />
                                 Add
                             </PrimaryButton>
@@ -287,6 +308,14 @@ function Admin({ setUser }) {
                                             />
                                             <span className="truncate">{toTitleCaseName(e.name)}</span>
                                         </span>
+                                    )
+                                },
+                                {
+                                    key: "role",
+                                    header: "Role",
+                                    getValue: (e) => formatRole(e.role),
+                                    render: (e) => (
+                                        <span className="text-slate-700">{formatRole(e.role)}</span>
                                     )
                                 },
                                 {
@@ -330,6 +359,9 @@ function Admin({ setUser }) {
                                                 />
                                                 <div className="min-w-0">
                                                     <p className="truncate text-sm font-medium text-slate-800">{toTitleCaseName(e.name)}</p>
+                                                    <p className="mt-0.5 text-xs text-slate-500">
+                                                        Role: {formatRole(e.role)}
+                                                    </p>
                                                     <p className="mt-0.5 text-xs text-slate-500">
                                                         Password: {displayEmpPassword(e) || "—"}
                                                     </p>
@@ -697,6 +729,70 @@ function Admin({ setUser }) {
                                     <p className="text-sm text-slate-700">{f.text}</p>
                                 </div>
                             ))}
+                        </div>
+                    </Card>
+                </div>
+            )}
+
+            {addEmpOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-300/35 px-4"
+                    onClick={closeAddEmp}
+                >
+                    <Card className="w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+                        <div className="mb-5 flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-slate-800">Add employee</h3>
+                            <button
+                                type="button"
+                                onClick={closeAddEmp}
+                                className="cursor-pointer text-slate-400 transition hover:text-slate-600"
+                            >
+                                <FiX size={18} />
+                            </button>
+                        </div>
+
+                        <label className="mb-1.5 block text-xs font-medium text-slate-500">Name</label>
+                        <Input
+                            className="mb-4"
+                            placeholder="Full name"
+                            value={addEmpName}
+                            onChange={(e) => setAddEmpName(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && submitAddEmp()}
+                        />
+
+                        <label className="mb-1.5 block text-xs font-medium text-slate-500">Role</label>
+                        <Select
+                            className="mb-4"
+                            value={addEmpRole}
+                            onChange={(e) => setAddEmpRole(e.target.value)}
+                        >
+                            {ONBOARDING_ALLOWED_ROLES.map((r) => (
+                                <option key={r} value={r}>
+                                    {formatRole(r)}
+                                </option>
+                            ))}
+                        </Select>
+
+                        <label className="mb-1.5 block text-xs font-medium text-slate-500">
+                            Password{" "}
+                            <span className="font-normal text-slate-400">(optional)</span>
+                        </label>
+                        <Input
+                            className="mb-5"
+                            placeholder="Leave blank for auto-generated"
+                            type="text"
+                            autoComplete="new-password"
+                            value={addEmpPassword}
+                            onChange={(e) => setAddEmpPassword(e.target.value)}
+                        />
+
+                        <div className="flex flex-col gap-2">
+                            <PrimaryButton type="button" onClick={submitAddEmp} className="w-full">
+                                Create employee
+                            </PrimaryButton>
+                            <SoftButton type="button" onClick={closeAddEmp} className="w-full">
+                                Cancel
+                            </SoftButton>
                         </div>
                     </Card>
                 </div>

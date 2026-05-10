@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FiColumns, FiDownload, FiGrid } from "react-icons/fi";
+import { FiChevronDown, FiChevronUp, FiColumns, FiDownload, FiFileText, FiGrid, FiSearch } from "react-icons/fi";
 
 const MotionDiv = motion.div;
 
@@ -196,6 +196,51 @@ export function Pill({ active = false, children, className = "", ...props }) {
     );
 }
 
+function gridColumnId(col, idx) {
+    return String(col?.key ?? col?.header ?? idx);
+}
+
+function columnIsSortable(col) {
+    if (!col) return false;
+    if (col.sortable === false) return false;
+    if (col.exportable === false) return false;
+    return !!(col.getSortValue || col.getValue || col.key);
+}
+
+function columnContributesSearch(col) {
+    if (!col || col.excludeFromSearch) return false;
+    if (col.exportable === false) return false;
+    return !!(col.getValue || col.key);
+}
+
+function sortComparableValue(item, col) {
+    if (typeof col.getSortValue === "function") return col.getSortValue(item);
+    if (typeof col.getValue === "function") return col.getValue(item);
+    if (col.key) return item?.[col.key];
+    return "";
+}
+
+function compareSortValues(a, b, col, dir) {
+    const flip = dir === "desc" ? -1 : 1;
+    const va = sortComparableValue(a, col);
+    const vb = sortComparableValue(b, col);
+
+    let cmp = 0;
+    if (typeof va === "number" && typeof vb === "number" && Number.isFinite(va) && Number.isFinite(vb)) {
+        cmp = va - vb;
+    } else if (typeof va === "number" && Number.isFinite(va)) {
+        cmp = -1;
+    } else if (typeof vb === "number" && Number.isFinite(vb)) {
+        cmp = 1;
+    } else {
+        cmp = String(va ?? "").localeCompare(String(vb ?? ""), undefined, {
+            numeric: true,
+            sensitivity: "base"
+        });
+    }
+    return cmp * flip;
+}
+
 export function CommonGrid({
     items = [],
     getKey,
@@ -209,6 +254,7 @@ export function CommonGrid({
     cardClassName = "grid gap-3 sm:grid-cols-2",
     tableWrapClassName = "overflow-x-auto rounded-2xl border border-violet-100 bg-slate-50/70",
     className = "",
+    getSearchText,
 }) {
     const canCard = !!renderCard;
     const canTable = Array.isArray(columns) && columns.length > 0;
@@ -245,6 +291,9 @@ export function CommonGrid({
         }
     };
 
+    const [searchQuery, setSearchQuery] = useState("");
+    const [sortSpec, setSortSpec] = useState({ columnId: null, dir: "asc" });
+
     const showEmpty = items.length === 0;
     const keyFn = getKey || ((item, idx) => idx);
     const exportColumns = (columns || []).filter((c) => c && c.exportable !== false);
@@ -256,9 +305,62 @@ export function CommonGrid({
         return "";
     };
 
+    const searchColumns = useMemo(
+        () => (Array.isArray(columns) ? columns.filter(columnContributesSearch) : []),
+        [columns]
+    );
+
+    const filteredItems = useMemo(() => {
+        if (showEmpty) return [];
+        const trimmed = searchQuery.trim().toLowerCase();
+        if (!trimmed) return items;
+        const words = trimmed.split(/\s+/).filter(Boolean);
+
+        if (typeof getSearchText === "function") {
+            return items.filter((item) => {
+                const blob = String(getSearchText(item) ?? "").toLowerCase();
+                return words.every((w) => blob.includes(w));
+            });
+        }
+        if (!searchColumns.length) return items;
+        return items.filter((item) => {
+            const blob = searchColumns
+                .map((c) => String(getExportCellText(item, c) ?? "").toLowerCase())
+                .join(" ");
+            return words.every((w) => blob.includes(w));
+        });
+    }, [items, searchQuery, showEmpty, searchColumns, getSearchText]);
+
+    const activeSortColumn = useMemo(() => {
+        if (!sortSpec.columnId || !Array.isArray(columns)) return null;
+        const idx = columns.findIndex((c, i) => gridColumnId(c, i) === sortSpec.columnId);
+        const col = idx >= 0 ? columns[idx] : null;
+        if (!col || !columnIsSortable(col)) return null;
+        return col;
+    }, [sortSpec.columnId, columns]);
+
+    const displayItems = useMemo(() => {
+        if (!activeSortColumn) return filteredItems;
+        const next = [...filteredItems];
+        next.sort((a, b) => compareSortValues(a, b, activeSortColumn, sortSpec.dir));
+        return next;
+    }, [filteredItems, activeSortColumn, sortSpec.dir]);
+
+    const noMatches = !showEmpty && filteredItems.length === 0 && searchQuery.trim() !== "";
+
+    const toggleSortColumn = (col, idx) => {
+        if (!columnIsSortable(col)) return;
+        const id = gridColumnId(col, idx);
+        setSortSpec((prev) => {
+            if (prev.columnId !== id) return { columnId: id, dir: "asc" };
+            if (prev.dir === "asc") return { columnId: id, dir: "desc" };
+            return { columnId: null, dir: "asc" };
+        });
+    };
+
     const downloadCsv = () => {
         if (!exportColumns.length) return;
-        const csv = toCsv(exportColumns, items, getExportCellText);
+        const csv = toCsv(exportColumns, displayItems, getExportCellText);
         downloadBlob({
             filename: `${fileBase}.csv`,
             mime: "text/csv;charset=utf-8",
@@ -271,7 +373,7 @@ export function CommonGrid({
         exportAsPrintableTable({
             title: fileBase,
             columns: exportColumns,
-            items,
+            items: displayItems,
             getCellText: getExportCellText
         });
     };
@@ -279,85 +381,162 @@ export function CommonGrid({
     return (
         <div className={className}>
             {(header || renderCard || canTable) && (
-                <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-sm font-medium text-slate-700">{header}</div>
-                    <div className="flex items-center gap-2">
-                        {canCard && (
-                            <button
-                                type="button"
-                                onClick={() => setViewAndPersist("card")}
-                                className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition ${
-                                    view === "card"
-                                        ? "border-violet-300 bg-violet-200 text-violet-800"
-                                        : "border-violet-200 bg-slate-50/90 text-slate-600 hover:bg-violet-100/70"
-                                }`}
-                                aria-pressed={view === "card"}
-                            >
-                                <FiGrid size={16} />
-                                Cards
-                            </button>
-                        )}
-                        {canTable && (
-                            <button
-                                type="button"
-                                onClick={() => setViewAndPersist("table")}
-                                className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition ${
-                                    view === "table"
-                                        ? "border-violet-300 bg-violet-200 text-violet-800"
-                                        : "border-violet-200 bg-slate-50/90 text-slate-600 hover:bg-violet-100/70"
-                                }`}
-                                aria-pressed={view === "table"}
-                            >
-                                <FiColumns size={16} />
-                                Table
-                            </button>
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <div className="min-w-0 text-sm font-medium text-slate-700">{header}</div>
+                    <div className="flex min-w-0 flex-shrink-0 flex-wrap items-center justify-start gap-x-3 gap-y-2 sm:justify-end">
+                        {(canCard || canTable) && (
+                            <div className="flex items-center md:gap-2">
+                                {canCard && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewAndPersist("card")}
+                                        title="Cards"
+                                        className={`flex items-center rounded-2xl border px-3 py-2 text-sm font-medium transition max-md:px-2.5 md:gap-2 ${
+                                            view === "card"
+                                                ? "border-violet-300 bg-violet-200 text-violet-800"
+                                                : "border-violet-200 bg-slate-50/90 text-slate-600 hover:bg-violet-100/70"
+                                        }`}
+                                        aria-label="Cards view"
+                                        aria-pressed={view === "card"}
+                                    >
+                                        <FiGrid size={16} aria-hidden />
+                                        <span className="hidden md:inline">Cards</span>
+                                    </button>
+                                )}
+                                {canCard && canTable && (
+                                    <span className="px-2 text-xs font-light text-slate-300 md:hidden" aria-hidden>
+                                        |
+                                    </span>
+                                )}
+                                {canTable && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewAndPersist("table")}
+                                        title="Table"
+                                        className={`flex items-center rounded-2xl border px-3 py-2 text-sm font-medium transition max-md:px-2.5 md:gap-2 ${
+                                            view === "table"
+                                                ? "border-violet-300 bg-violet-200 text-violet-800"
+                                                : "border-violet-200 bg-slate-50/90 text-slate-600 hover:bg-violet-100/70"
+                                        }`}
+                                        aria-label="Table view"
+                                        aria-pressed={view === "table"}
+                                    >
+                                        <FiColumns size={16} aria-hidden />
+                                        <span className="hidden md:inline">Table</span>
+                                    </button>
+                                )}
+                            </div>
                         )}
 
-                        {exportColumns.length > 0 && !showEmpty && (
-                            <>
+                        {exportColumns.length > 0 && displayItems.length > 0 && (
+                            <div className="flex items-center">
                                 <button
                                     type="button"
                                     onClick={downloadCsv}
-                                    className="flex items-center gap-2 rounded-2xl border border-violet-200 bg-slate-50/90 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-violet-100/70"
+                                    title="Export Excel (CSV)"
+                                    aria-label="Export Excel spreadsheet"
+                                    className="rounded-2xl border border-violet-200 bg-slate-50/90 p-2.5 text-slate-600 transition hover:bg-violet-100/70"
                                 >
-                                    <FiDownload size={16} />
-                                    Excel
+                                    <FiDownload size={16} aria-hidden />
                                 </button>
+                                <span className="px-2 text-xs font-light text-slate-300" aria-hidden>
+                                    |
+                                </span>
                                 <button
                                     type="button"
                                     onClick={downloadPdf}
-                                    className="flex items-center gap-2 rounded-2xl border border-violet-200 bg-slate-50/90 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-violet-100/70"
+                                    title="Export PDF"
+                                    aria-label="Export PDF"
+                                    className="rounded-2xl border border-violet-200 bg-slate-50/90 p-2.5 text-slate-600 transition hover:bg-violet-100/70"
                                 >
-                                    <FiDownload size={16} />
-                                    PDF
+                                    <FiFileText size={16} aria-hidden />
                                 </button>
-                            </>
+                            </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {!showEmpty && (
+                <div className="mb-3">
+                    <div className="relative">
+                        <FiSearch
+                            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                            aria-hidden
+                        />
+                        <Input
+                            type="search"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search…"
+                            className="pl-9"
+                            aria-label="Search this list"
+                        />
                     </div>
                 </div>
             )}
 
             {showEmpty ? (
                 empty || <p className="py-4 text-center text-sm text-slate-500">No items</p>
+            ) : noMatches ? (
+                <p className="py-4 text-center text-sm text-slate-500">No matching results</p>
             ) : view === "table" ? (
                 <div className={tableWrapClassName}>
                     <table className="min-w-full divide-y divide-violet-100">
                         <thead className="bg-violet-50/40">
                             <tr>
-                                {columns.map((col, idx) => (
-                                    <th
-                                        key={col.key ?? idx}
-                                        className={`px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 ${
-                                            col.headerClassName || ""
-                                        }`}
-                                    >
-                                        {col.header}
-                                    </th>
-                                ))}
+                                {columns.map((col, idx) => {
+                                    const sortable = columnIsSortable(col);
+                                    const cid = gridColumnId(col, idx);
+                                    const active = sortSpec.columnId === cid;
+                                    return (
+                                        <th
+                                            key={col.key ?? idx}
+                                            className={`px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 ${
+                                                col.headerClassName || ""
+                                            }`}
+                                            aria-sort={
+                                                !sortable
+                                                    ? undefined
+                                                    : !active
+                                                      ? "none"
+                                                      : sortSpec.dir === "asc"
+                                                        ? "ascending"
+                                                        : "descending"
+                                            }
+                                        >
+                                            {sortable ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleSortColumn(col, idx)}
+                                                    className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-lg text-left font-[inherit] tracking-[inherit] text-slate-600 outline-none transition hover:text-violet-700 focus-visible:ring-2 focus-visible:ring-violet-200"
+                                                >
+                                                    <span className="min-w-0 truncate">{col.header}</span>
+                                                    {active &&
+                                                        (sortSpec.dir === "asc" ? (
+                                                            <FiChevronUp
+                                                                className="shrink-0 text-violet-600"
+                                                                size={14}
+                                                                aria-hidden
+                                                            />
+                                                        ) : (
+                                                            <FiChevronDown
+                                                                className="shrink-0 text-violet-600"
+                                                                size={14}
+                                                                aria-hidden
+                                                            />
+                                                        ))}
+                                                </button>
+                                            ) : (
+                                                col.header
+                                            )}
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-violet-100 bg-slate-50/60">
-                            {items.map((item, rowIdx) => (
+                            {displayItems.map((item, rowIdx) => (
                                 <tr key={keyFn(item, rowIdx)} className="hover:bg-violet-50/30">
                                     {columns.map((col, colIdx) => (
                                         <td
@@ -374,7 +553,7 @@ export function CommonGrid({
                 </div>
             ) : view === "card" ? (
                 <div className={cardClassName}>
-                    {items.map((item, idx) => (
+                    {displayItems.map((item, idx) => (
                         <div key={keyFn(item, idx)}>
                             {renderCard ? renderCard(item, idx) : null}
                         </div>

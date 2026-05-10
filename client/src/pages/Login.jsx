@@ -17,7 +17,7 @@ function Login({ setUser }) {
             const res = await fetch(`${BASE}/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, pin }),
+                body: JSON.stringify({ name, password }),
             });
 
             const data = await res.json();

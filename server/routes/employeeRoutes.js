@@ -30,13 +30,34 @@ router.post("/emps", (req, res) => {
     const user = checkAuth(req);
     if (!user) return res.status(401).send("no auth");
 
-    const { name, avatarUrl } = req.body;
+    const { name, avatarUrl, password: bodyPassword, role: bodyRole, dept: bodyDept } = req.body;
     if (!name) return res.status(400).send("name req");
+
+    const allowedRoles = new Set(["admin", "hr", "manager", "employee"]);
+    const role =
+        typeof bodyRole === "string" && allowedRoles.has(bodyRole.toLowerCase())
+            ? bodyRole.toLowerCase()
+            : "employee";
+
+    const defaultDept =
+        role === "admin" ? "admin" : role === "hr" ? "hr" : "engineering";
+    const dept =
+        typeof bodyDept === "string" && bodyDept.trim() !== ""
+            ? bodyDept.trim()
+            : defaultDept;
+
+    const useAutoPwd =
+        bodyPassword === undefined ||
+        bodyPassword === null ||
+        String(bodyPassword).trim() === "";
+    const password = useAutoPwd ? String(genPassword()) : String(bodyPassword).trim();
 
     const newEmp = {
         id: genId(),
         name: toTitleCaseName(name),
-        password: genPassword()
+        password,
+        role,
+        dept
     };
 
     newEmp.avatarUrl =
