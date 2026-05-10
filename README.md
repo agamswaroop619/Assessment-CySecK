@@ -1,20 +1,23 @@
-# CySecK Assessment 2
+# CySecK assessment
 
-lightweight employee performance + feedback app split into two parts: client + backend.
+Employee performance & scoring system
 
-### User
-- role-based login flow: admin, hr, manager, employee
-- admin can add employee (auto auth code generated)
-- admin can edit employee (name, auth code)
-- admin can delete employee
-- admin can create reviews and assign multiple reviewers
-- admin can edit review details and assignees
-- admin can open any review and read submitted feedback
-- employee can see only assigned reviews
-- employee can submit feedback once per review (no double submit)
-- dedicated dashboard routes exist for hr and manager
+### User Access Matrix
+
+| Feature                       | Admin | Manager | HR  | Employee |
+| ----------------------------- | ----- | ------- | --- | -------- |
+| View all employees            | ✓     | ✓       | ✓   | —        |
+| Add / edit / delete employees | ✓     | —       | —   | —        |
+| Bulk onboard users            | ✓     | —       | —   | —        |
+| Create & assign reviews       | ✓     | —       | —   | —        |
+| Submit scorecard rating       | —     | ✓       | —   | —        |
+| View peer feedback            | ✓     | ✓       | —   | —        |
+| View dept analytics           | —     | —       | ✓   | —        |
+| View own ratings              | —     | —       | —   | ✓        |
+| Submit peer feedback          | —     | —       | —   | ✓        |
 
 #### Sample Login Users (From Seed Data)
+
 - admin: name `admin`, auth `admin@123`
 - manager: name `john doe`, auth `john@123`
 - hr: name `jane smith`, auth `jane@123`
@@ -22,6 +25,7 @@ lightweight employee performance + feedback app split into two parts: client + b
 - employee: name `emma stone`, auth `emma@123`
 
 ### Technical
+
 - backend: node + express + cors
 - frontend: react + vite + tailwind
 - routing with react-router
@@ -34,6 +38,7 @@ lightweight employee performance + feedback app split into two parts: client + b
 - scorecard has dept summary and skill gap endpoints
 
 #### Main Backend Endpoints
+
 - `POST /login`
 - `POST /onboarding`
 - `GET/POST /emps`, `PUT/DELETE /emps/:id`
@@ -46,26 +51,15 @@ lightweight employee performance + feedback app split into two parts: client + b
 - `PUT /scorecard/:id`
 - `GET /scorecard/gaps/:employee_id`
 
-### Role Access Matrix
-| Feature | Admin | Manager | HR | Employee |
-| --- | --- | --- | --- | --- |
-| View all employees | ✓ | ✓ | ✓ | — |
-| Add / edit / delete employees | ✓ | — | — | — |
-| Bulk onboard users | ✓ | — | — | — |
-| Create & assign reviews | ✓ | — | — | — |
-| Submit scorecard rating | — | ✓ | — | — |
-| View peer feedback | ✓ | ✓ | — | — |
-| View dept analytics | — | — | ✓ | — |
-| View own ratings | — | — | — | ✓ |
-| Submit peer feedback | — | — | — | ✓ |
-
 #### Routing Behavior
+
 - app loads `user` from localStorage on startup
 - if logged in, `/` auto-redirects by role: `/admin`, `/hr`, `/manager`, `/employee`
 - unknown role or unauthenticated users get redirected to login
 - switching routes uses short enter/exit animations (helps especially on mobile)
 
 ### Scorecard Parameters
+
 1. **Technical Skills** - depth of technical knowledge and code quality
 2. **Communication** - clarity in written and verbal collaboration
 3. **Teamwork** - how well the person works with others
@@ -75,9 +69,10 @@ lightweight employee performance + feedback app split into two parts: client + b
 7. **Adaptability** - handling changing requirements and ambiguity
 8. **Delivery Quality** - reliability of output and on-time completion
 
-each parameter is rated 1-5 in manager scorecards. hr gap view flags parameters below `3.0` avg as `needs_improvement`.
+each parameter is rated 1-5 in manager scorecards. hr gap view flags parameters below `3` avg as `needs_improvement`.
 
 ### Run Full System (One Script)
+
 - open terminal in project root
 - `chmod +x start-system.sh` (first time only)
 - `./start-system.sh`
@@ -88,6 +83,7 @@ each parameter is rated 1-5 in manager scorecards. hr gap view flags parameters 
 - client uses vite 8: use **node 20.19+** or **22.12+** locally if `npm run dev` / `npm run build` complains about the runtime
 
 ### Assumptions
+
 - no db in this phase; everything is intentionally in-memory and ephemeral
 - auth is intentionally simple: login with `name + auth`, then client sends `x-user`
 - role behavior is mostly frontend route/page logic (no strict backend role middleware)
