@@ -1,18 +1,15 @@
 import { useEffect, useState } from "react";
-import { FiFileText, FiSend, FiLogOut } from "react-icons/fi";
+import { FiLogOut, FiUsers } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { getRatingColor } from "../theme/colors";
 import {
     AppShell,
-    Avatar,
     Card,
     CommonGrid,
     PageHeader,
     PageWrap,
-    PrimaryButton,
     SoftButton
 } from "../components/ui";
-import { toTitleCaseName } from "../utils/formatName";
 
 const BASE = "http://localhost:7250";
 const RATING_PARAMS = [
@@ -42,36 +39,10 @@ function Emp({ setUser }) {
         navigate("/");
     };
 
-    const [reviews, setReviews] = useState([]);
-    const [feedbacks, setFeedbacks] = useState({});       // draft text per reviewId
-    const [alreadyGiven, setAlreadyGiven] = useState({}); // submittedText per reviewId (from server)
     const [myRatings, setMyRatings] = useState([]);
 
     const load = async () => {
-        const res = await fetch(`${BASE}/my-revs/${user.id}`, {
-            headers: { "x-user": user.id }
-        });
-        const data = await res.json();
-        setReviews(data);
-
-        // For each review, check if this user already submitted feedback
-        const results = await Promise.all(
-            data.map(r =>
-                fetch(`${BASE}/fb/${r.id}`, { headers: { "x-user": user.id } })
-                    .then(res => res.json())
-                    .then(fbList => {
-                        const mine = fbList.find(f => f.fromId === user.id);
-                        return { reviewId: r.id, text: mine ? mine.text : null };
-                    })
-            )
-        );
-
-        const given = {};
-        results.forEach(({ reviewId, text }) => {
-            if (text !== null) given[reviewId] = text;
-        });
-        setAlreadyGiven(given);
-
+        if (!user?.id) return;
         const scorecardRes = await fetch(`${BASE}/scorecard/${user.id}`, {
             headers: { "x-user": user.id }
         });
@@ -85,187 +56,94 @@ function Emp({ setUser }) {
         });
     }, []);
 
-    const submitFeedback = async (id) => {
-        if (!feedbacks[id]) return;
-
-        await fetch(BASE + "/fb", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-user": user.id
-            },
-            body: JSON.stringify({
-                reviewId: id,
-                fromId: user.id,
-                text: feedbacks[id]
-            })
-        });
-
-        // Move draft into alreadyGiven so it renders as submitted
-        setAlreadyGiven(prev => ({ ...prev, [id]: feedbacks[id] }));
-    };
-
     return (
         <AppShell>
             <PageWrap max="max-w-6xl">
                 <PageHeader
-                    title="My Reviews"
+                    title="My Dashboard"
                     right={(
-                        <SoftButton onClick={logout} className="flex items-center gap-2">
-                            <FiLogOut />
-                            Logout
-                        </SoftButton>
+                        <div className="flex items-center gap-2">
+                            <SoftButton
+                                onClick={() => navigate("/employee/peer-review")}
+                                className="flex items-center gap-2"
+                            >
+                                <FiUsers />
+                                Peer Reviews
+                            </SoftButton>
+                            <SoftButton onClick={logout} className="flex items-center gap-2">
+                                <FiLogOut />
+                                Logout
+                            </SoftButton>
+                        </div>
                     )}
                 />
 
                 <CommonGrid
-                    header="Reviews"
-                    items={reviews}
-                    storageKey="emp-reviews-view"
+                    header="My Ratings"
+                    items={myRatings}
+                    storageKey="emp-ratings-view"
                     defaultView="card"
                     showTableView={false}
-                    exportFileName="My Reviews"
-                    cardClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+                    exportFileName="My Ratings"
+                    cardClassName="grid grid-cols-1 gap-5"
                     empty={(
                         <Card>
-                            <p className="text-center text-sm text-slate-500">No reviews assigned yet</p>
+                            <p className="text-center text-sm text-slate-500">No ratings received yet</p>
                         </Card>
                     )}
-                    getKey={(r) => r.id}
+                    getKey={(entry) => entry.id}
                     columns={[
-                        { key: "title", header: "Title", getValue: (r) => r.title },
-                        {
-                            key: "employee",
-                            header: "Employee",
-                            getValue: (r) => toTitleCaseName(r.empName ?? "")
-                        },
-                        {
-                            key: "status",
-                            header: "Status",
-                            getValue: (r) => (alreadyGiven[r.id] !== undefined ? "Submitted" : "Pending")
-                        }
+                        { key: "review", header: "Review", getValue: (entry) => `Review #${entry.review_id}` }
                     ]}
-                    renderCard={(r) => {
-                        const isDone = alreadyGiven[r.id] !== undefined;
-                        const displayName = toTitleCaseName(r.empName ?? "");
-                        const avatarSrc =
-                            r.empAvatarUrl ||
-                            `https://i.pravatar.cc/100?u=${encodeURIComponent(String(r.empId ?? r.empName ?? r.id))}`;
+                    renderCard={(entry) => (
+                        <div
+                            key={entry.id}
+                            className="rounded-xl border border-violet-100 bg-slate-50/90 p-5 shadow-sm"
+                        >
+                            <h3 className="mb-4 text-lg font-medium text-slate-800">
+                                Review #{entry.review_id}
+                            </h3>
 
-                        return (
-                            <Card>
-                                <div className="mb-3 flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 text-slate-700">
-                                        <FiFileText />
-                                        <h2 className="text-lg font-medium">{r.title}</h2>
-                                    </div>
-                                    {isDone && (
-                                        <span className="rounded-full bg-emerald-100/80 px-3 py-1 text-xs font-medium text-emerald-500">
-                                            Submitted
-                                        </span>
+                            <div className="space-y-3">
+                                {RATING_PARAMS.map((param) => {
+                                    const score = Number(entry[param.key] ?? 0);
+                                    const width = `${Math.max(0, Math.min(5, score)) / 5 * 100}%`;
+                                    const fillColor = getRatingColor(score);
+
+                                    return (
+                                        <div key={param.key} className="flex items-center gap-3">
+                                            <span className="w-36 shrink-0 text-[12px] text-slate-500">
+                                                {param.label}
+                                            </span>
+                                            <div className="flex flex-1 items-center gap-2">
+                                                <div className="h-2 w-full rounded bg-violet-100/70">
+                                                    <div
+                                                        className="h-2 rounded"
+                                                        style={{ width, backgroundColor: fillColor }}
+                                                    />
+                                                </div>
+                                                <span className="w-6 text-right text-sm text-slate-700">
+                                                    {score}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-5">
+                                <p className="mb-2 text-sm font-medium text-slate-700">Manager&apos;s Comment</p>
+                                <div className="rounded-md border border-violet-100 bg-violet-50/60 px-3 py-3 text-sm text-slate-700">
+                                    {entry.comment ? (
+                                        <p className="whitespace-pre-wrap">{entry.comment}</p>
+                                    ) : (
+                                        <p className="italic text-slate-500">No comment left.</p>
                                     )}
                                 </div>
-
-                                <p className="mb-4 text-sm text-slate-500">
-                                    <span className="inline-flex items-center gap-2">
-                                        <Avatar src={avatarSrc} alt={displayName} size={28} />
-                                        <span>
-                                            Reviewing:{" "}
-                                            <span className="font-medium text-slate-800">{displayName}</span>
-                                        </span>
-                                    </span>
-                                </p>
-
-                                {isDone ? (
-                                    <div className="whitespace-pre-wrap rounded-2xl border border-violet-100 bg-violet-50/60 px-3 py-3 text-sm text-slate-600">
-                                        {alreadyGiven[r.id]}
-                                    </div>
-                                ) : (
-                                    <>
-                                        <textarea
-                                            placeholder="Write your feedback..."
-                                            className="mb-3 w-full resize-none rounded-2xl border border-violet-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
-                                            rows={3}
-                                            value={feedbacks[r.id] || ""}
-                                            onChange={(e) =>
-                                                setFeedbacks({
-                                                    ...feedbacks,
-                                                    [r.id]: e.target.value
-                                                })
-                                            }
-                                        />
-                                        <PrimaryButton
-                                            onClick={() => submitFeedback(r.id)}
-                                            className="flex w-full items-center justify-center gap-2"
-                                        >
-                                            <FiSend />
-                                            Submit Feedback
-                                        </PrimaryButton>
-                                    </>
-                                )}
-                            </Card>
-                        );
-                    }}
-                />
-
-                <h2 className="mt-10 mb-6 text-3xl font-semibold tracking-tight text-slate-800">
-                    My Ratings
-                </h2>
-
-                {myRatings.length === 0 ? (
-                    <p className="text-center text-sm text-slate-500">No ratings received yet</p>
-                ) : (
-                    <div className="space-y-5">
-                        {myRatings.map((entry) => (
-                            <div
-                                key={entry.id}
-                                className="rounded-xl border border-violet-100 bg-slate-50/90 p-5 shadow-sm"
-                            >
-                                <h3 className="mb-4 text-lg font-medium text-slate-800">
-                                    Review #{entry.review_id}
-                                </h3>
-
-                                <div className="space-y-3">
-                                    {RATING_PARAMS.map((param) => {
-                                        const score = Number(entry[param.key] ?? 0);
-                                        const width = `${Math.max(0, Math.min(5, score)) / 5 * 100}%`;
-                                        const fillColor = getRatingColor(score);
-
-                                        return (
-                                            <div key={param.key} className="flex items-center gap-3">
-                                                <span className="w-36 shrink-0 text-[12px] text-slate-500">
-                                                    {param.label}
-                                                </span>
-                                                <div className="flex flex-1 items-center gap-2">
-                                                    <div className="h-2 w-full rounded bg-violet-100/70">
-                                                        <div
-                                                            className="h-2 rounded"
-                                                            style={{ width, backgroundColor: fillColor }}
-                                                        />
-                                                    </div>
-                                                    <span className="w-6 text-right text-sm text-slate-700">
-                                                        {score}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                <div className="mt-5">
-                                    <p className="mb-2 text-sm font-medium text-slate-700">Manager&apos;s Comment</p>
-                                    <div className="rounded-md border border-violet-100 bg-violet-50/60 px-3 py-3 text-sm text-slate-700">
-                                        {entry.comment ? (
-                                            <p className="whitespace-pre-wrap">{entry.comment}</p>
-                                        ) : (
-                                            <p className="italic text-slate-500">No comment left.</p>
-                                        )}
-                                    </div>
-                                </div>
                             </div>
-                        ))}
-                    </div>
-                )}
+                        </div>
+                    )}
+                />
             </PageWrap>
         </AppShell>
     );

@@ -6,6 +6,7 @@ import Admin from "./pages/Admin";
 import Emp from "./pages/Emp";
 import Manager from "./pages/Manager";
 import HR from "./pages/HR";
+import PeerReview from "./pages/PeerReview";
 
 const MotionDiv = motion.div;
 
@@ -93,6 +94,20 @@ function AnimatedRoutes({ user, setUser }) {
               transition={{ duration: 0.2 }}
             >
               {user && user.role === "employee" ? <Emp setUser={setUser} /> : <Navigate to="/" />}
+            </MotionDiv>
+          }
+        />
+
+        <Route
+          path="/employee/peer-review"
+          element={
+            <MotionDiv
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -16 }}
+              transition={{ duration: 0.2 }}
+            >
+              {user && user.role === "employee" ? <PeerReview setUser={setUser} /> : <Navigate to="/" />}
             </MotionDiv>
           }
         />
