@@ -3,17 +3,17 @@
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BACKEND_DIR="$ROOT_DIR/backend"
+BACKEND_DIR="$ROOT_DIR/server"
 CLIENT_DIR="$ROOT_DIR/client"
 
 if [ ! -d "$BACKEND_DIR" ] || [ ! -d "$CLIENT_DIR" ]; then
-  echo "backend or client folder not found"
+  echo "server or client folder not found"
   exit 1
 fi
 
 # Install deps only when missing
 if [ ! -d "$BACKEND_DIR/node_modules" ]; then
-  echo "install backend deps..."
+  echo "install server deps..."
   (cd "$BACKEND_DIR" && npm install)
 fi
 
@@ -34,7 +34,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Start backend and frontend together
-echo "start backend on 7250..."
+echo "start server on 7250..."
 (cd "$BACKEND_DIR" && node server.js) &
 BACKEND_PID=$!
 
